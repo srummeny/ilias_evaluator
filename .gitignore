@@ -22,6 +22,7 @@ var/
 wheels/
 ETG_SS21_Exam/
 ETG_SS21_ZT/
+result_analysis/
 pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
