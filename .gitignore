@@ -20,6 +20,8 @@ parts/
 sdist/
 var/
 wheels/
+ETG_SS21_Exam/
+ETG_SS21_ZT/
 pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
