@@ -2,7 +2,7 @@
 Script of ETG Bonus evaluation
 Author: Silvan Rummeny
 """
-import ILIAS_evaluator_V2_0 as ev
+import ilias_evaluator as ev
 import pandas as pd
 import numpy as np
 import glob
@@ -82,8 +82,8 @@ for zt in range(len(considered_tests)):
     intermediate_tests.append(ev.Test(members, marker, considered_tests[zt],
                                       result_import[zt], import_pool_FF[zt], 
                                       import_pool_SC[zt]))
-    print("process ILIAS-data...")
-    intermediate_tests[zt].process_ILIAS_Data()
+    print("process ILIAS data...")
+    intermediate_tests[zt].process_d_ilias()
     print("process task pools and evaluate...")
     intermediate_tests[zt].process_Pools()
     
