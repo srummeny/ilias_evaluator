@@ -55,8 +55,8 @@ class Test:
                  marker: list, 
                  name: int or str, 
                  ilias_export: str, 
-                 FF: str, 
-                 SC: str):
+                 ff: str,
+                 sc: str):
         """
         Parameters
         -----------
@@ -70,17 +70,17 @@ class Test:
             exam cohort)
         ilias_export: str
             path of the ILIAS result and data import file
-        FF: str
+        ff: str
             path of Formelfrage task pool
-        SC: str
+        sc: str
             path of SingleChoice task pool
         """
         self.members = members
         self.marker = marker
         self.name = name
     ## 1. read task pool data
-        self.FF = pd.read_excel(FF, sheet_name='Formelfrage - Database')
-        self.SC = pd.read_excel(SC, sheet_name='SingleChoice - Database')
+        self.ff = pd.read_excel(ff, sheet_name='Formelfrage - Database')
+        self.sc = pd.read_excel(sc, sheet_name='SingleChoice - Database')
         print ("excel task pools OK")
         print ("read ILIAS-data...")
         df = pd.ExcelFile(ilias_export)  
@@ -171,21 +171,21 @@ class Test:
                 """
                 TODO: consider task IDs
                 # id_title = title[0:title.find(" ")]      # FragenID
-                # self.ent.loc[i_mem, (A_t, 'ID')]= id_title
+                # self.ent.loc[i_mem, (a_t, 'ID')]= id_title
                 """
                 # is there a new run?
                 if txt.startswith(run_marker):    
                     i_run += 1
                     i_task = 1  # tasks start with integer 1
                 # is there a new task?
-                elif any([txt == tasks[i] for i in range(len(tasks))]): 
+                elif any([txt == tasks[j] for j in range(len(tasks))]):
                     i_task += 1
-                    A_t = 'A'+str(i_task)
+                    a_t = 'A'+str(i_task)
                     title = self.d_ilias[p]['values'][i]
-                    self.ent.loc[i_mem, (A_t, 'Type')]= txt
-                    self.ent.loc[i_mem, (A_t, 'Title')]= title
-                    self.ent.loc[i_mem, (A_t, 'Var')]= [None]*15
-                    self.ent.loc[i_mem, (A_t, 'R')]= []   # [None]*10
+                    self.ent.loc[i_mem, (a_t, 'Type')]= txt
+                    self.ent.loc[i_mem, (a_t, 'Title')]= title
+                    self.ent.loc[i_mem, (a_t, 'Var')]= [None]*15
+                    self.ent.loc[i_mem, (a_t, 'R')]= []   # [None]*10
                 # is there a new variable or result?
                 elif (txt.startswith(var_marker) or
                     txt.startswith(res_marker) or
@@ -195,11 +195,11 @@ class Test:
                         if txt.startswith(var_marker):
                             var = self.d_ilias[p]['values'][i]
                             v_i = int(txt.replace(var_marker, ''))-1
-                            self.ent.loc[i_mem, (A_t, 'Var')][v_i] = var
+                            self.ent.loc[i_mem, (a_t, 'Var')][v_i] = var
                         elif (txt.startswith(res_marker) or 
                               txt.startswith(res_marker_ft)):
                             r = self.d_ilias[p]['values'][i]
-                            self.ent.loc[i_mem, (A_t, 'R')].append(r)
+                            self.ent.loc[i_mem, (a_t, 'R')].append(r)
                     """
                     TODO: implement consideration of arbitrary result inputs
                     # r_i = int(txt.replace(res_marker, ''))-1
@@ -207,7 +207,7 @@ class Test:
                 else: 
                     # catch selected Single-Choice-Answeres (no marker used)
                     if self.d_ilias[p]['values'][i] == 1:
-                        self.ent.loc[i_mem, (A_t, 'R')].append(txt)
+                        self.ent.loc[i_mem, (a_t, 'R')].append(txt)
     ## 4. Create self.row_finder of valid results according to ILIAS 
             try: # try to find row of Name in r_ilias (identical)
                 row = self.r_ilias.index.get_loc(self.members['Name'][i_mem])
@@ -221,7 +221,7 @@ class Test:
         # find row of valid run of all participants
         for i in range(len(self.row_finder)):   
             row = self.row_finder['row_init'][i]
-            if np.isnan(row): # skip rows containing nan
+            if np.isnan(row):   # skip rows containing nan
                 continue
             else:
                 # find number of valid run in ILIAS_results
@@ -245,9 +245,9 @@ class Test:
         
         Mainly used Parameters of class Test:
         ----------------
-        self.FF: pd.DataFrame
+        self.ff: pd.DataFrame
             DataFrame of Formelfrage task pool
-        self.SC: pd.DataFrame
+        self.sc: pd.DataFrame
             DataFrame of SingleChoice task pool
         self.ent: pd.DataFrame
             Dataframe containing all single entries, variables and results of 
@@ -267,37 +267,37 @@ class Test:
             # iterate every tasks
             for t in range(self.ent.columns.levshape[0]): 
                 P = 0   # set task points to zero (default)
-                A_t = 'A'+str(t+1)  # get task header
+                a_t = 'A'+str(t+1)  # get task header
                 input_res = []
     ## 2. Get task in task pools and/or in r_ilias
-                # is task title in FF-task pool?
-                sel_FF = self.FF['question_title']==self.ent[(A_t, 'Title')][m]
-                # is task title in SC-task pool?
-                sel_SC = self.SC['question_title']==self.ent[(A_t, 'Title')][m]
+                # is task title in ff-task pool?
+                sel_ff = self.ff['question_title']==self.ent[(a_t, 'Title')][m]
+                # is task title in sc-task pool?
+                sel_sc = self.sc['question_title']==self.ent[(a_t, 'Title')][m]
                 # is the task title in represented in r_ilias?
-                sel_c = self.r_ilias.columns == self.ent[(A_t, 'Title')][m]
+                sel_c = self.r_ilias.columns == self.ent[(a_t, 'Title')][m]
                 # proof if task title is unique
-                if (len(self.FF[sel_FF]) > 1 or len(self.SC[sel_SC]) > 1):
-                    print('### Task title "', self.ent[(A_t, 'Title')][m], 
+                if (len(self.ff[sel_ff]) > 1 or len(self.sc[sel_sc]) > 1):
+                    print('### Task title "', self.ent[(a_t, 'Title')][m],
                           '" is not unique! ###')
                     continue    
             ## if task type is Formelfrage
-                if any(sel_FF): 
-                    sel_formula = self.FF.loc[sel_FF, self.FF.columns.str.contains('formula')]
+                if any(sel_ff):
+                    sel_formula = self.ff.loc[sel_ff, self.ff.columns.str.contains('formula')]
                     # initialize empty lists in following parameters
-                    self.ent[(A_t, 'Formula')][m] = []
-                    self.ent[(A_t, 'Tol')][m] = []
-                    self.ent[(A_t, 'Pkt')][m] = []
-                    self.ent[(A_t, 'R_ref')][m] = []
+                    self.ent[(a_t, 'Formula')][m] = []
+                    self.ent[(a_t, 'Tol')][m] = []
+                    self.ent[(a_t, 'Pkt')][m] = []
+                    self.ent[(a_t, 'R_ref')][m] = []
                     # iterate number of formulas/results of that task
                     for n in range(sum([sel_formula.iloc[0] != ' '][0])): 
-                        formula = self.FF['res'+str(n+1)+'_formula'][sel_FF].astype(str).item()
-                        tol = self.FF['res'+str(n+1)+'_tol'][sel_FF].item()
-                        Var = self.ent[(A_t, 'Var')][m]
-                        self.ent[(A_t, 'Formula')][m].append(formula)
-                        self.ent[(A_t, 'Tol')][m].append(tol) 
-                        if (~self.ent[(A_t, 'Var')].isna()[m] and # if var not NaN
-                            len(self.ent[(A_t, 'R')][m])>=n+1):   # if R-list is long enough
+                        formula = self.ff['res'+str(n+1)+'_formula'][sel_ff].astype(str).item()
+                        tol = self.ff['res'+str(n+1)+'_tol'][sel_ff].item()
+                        Var = self.ent[(a_t, 'Var')][m]
+                        self.ent[(a_t, 'Formula')][m].append(formula)
+                        self.ent[(a_t, 'Tol')][m].append(tol)
+                        if (~self.ent[(a_t, 'Var')].isna()[m] and # if var not NaN
+                            len(self.ent[(a_t, 'R')][m])>=n+1):   # if R-list is long enough
         ## 2.a evaluate Formelfrage task
                             R_ref = eval_ILIAS(formula, var=Var, res=input_res)
                             if R_ref == None: 
@@ -305,72 +305,72 @@ class Test:
                                       ', Task', str(t+1), 'is None! ###')
                             elif R_ref == 'not_valid':
                                 # if there is a formula error, decide in favour of participant
-                                P += self.FF['res'+str(n+1)+'_points'][sel_FF].item()
+                                P += self.ff['res'+str(n+1)+'_points'][sel_ff].item()
                             else:
                                 input_res.append(R_ref)
-                                self.ent[(A_t, 'R_ref')][m].append(R_ref)
+                                self.ent[(a_t, 'R_ref')][m].append(R_ref)
                                 R_min = min(R_ref*(1+tol/100),R_ref*(1-tol/100))
                                 R_max = max (R_ref*(1+tol/100),R_ref*(1-tol/100)) 
-                                R_entry = self.ent[(A_t, 'R')][m][n]
+                                R_entry = self.ent[(a_t, 'R')][m][n]
                                 if type(R_entry)==str: # if the entered result = str (e.g. when fractions are entered) 
                                     R_entry = eval(R_entry)
                                 if (R_entry >= R_min) and (R_entry <= R_max): # check correct result
-                                    P += self.FF['res'+str(n+1)+'_points'][sel_FF].item()
+                                    P += self.ff['res'+str(n+1)+'_points'][sel_ff].item()
                         else: # no result or vars available
                             continue
-                    self.ent.loc[m, (A_t, 'Pkt')] = P
+                    self.ent.loc[m, (a_t, 'Pkt')] = P
                     # if there are ILIAS_results for single task available
                     if any(sel_c): 
                         # get Points achieved according to ILIAS
-                        self.ent.loc[m, (A_t, 'Pkt_ILIAS')] = self.r_ilias.iloc[row_r, sel_c].values.item()
+                        self.ent.loc[m, (a_t, 'Pkt_ILIAS')] = self.r_ilias.iloc[row_r, sel_c].values.item()
             ## if task type is SingleChoice
-                elif any(sel_SC): 
+                elif any(sel_sc):
                     # if there are ILIAS_results for single task available
                     if any(sel_c):
                         # get Points achieved according to ILIAS
-                        self.ent.loc[m,(A_t, 'Pkt_ILIAS')] = self.r_ilias.iloc[row_r, sel_c].values.item()
+                        self.ent.loc[m,(a_t, 'Pkt_ILIAS')] = self.r_ilias.iloc[row_r, sel_c].values.item()
                         # set Points to Points achieved according to ILIAS
-                        self.ent.loc[m,(A_t, 'Pkt')] = self.ent[(A_t, 'Pkt_ILIAS')][m]
+                        self.ent.loc[m,(a_t, 'Pkt')] = self.ent[(a_t, 'Pkt_ILIAS')][m]
                     else: 
                         try: 
                             # get number of answeres
-                            sel_text = self.SC.loc[sel_SC, self.SC.columns.str.contains('text')]
-                            self.ent[(A_t, 'Formula')][m] = []
-                            self.ent[(A_t, 'Tol')][m] = []
-                            self.ent[(A_t, 'Pkt')][m] = []
-                            self.ent[(A_t, 'R_ref')][m] = []
+                            sel_text = self.sc.loc[sel_sc, self.sc.columns.str.contains('text')]
+                            self.ent[(a_t, 'Formula')][m] = []
+                            self.ent[(a_t, 'Tol')][m] = []
+                            self.ent[(a_t, 'Pkt')][m] = []
+                            self.ent[(a_t, 'R_ref')][m] = []
                             # iterate number of answer texts / results of that task
                             for n in range(sum([sel_text.iloc[0] != ' '][0])):
                             # get the correct answer and save it in self.ent
-                                if self.SC['response_'+str(n+1)+'_pts'][sel_SC].values.item() > 0:
-                                    text = self.SC['response_'+str(n+1)+'_text'][sel_SC].values.item()
-                                    pts = self.SC['response_'+str(n+1)+'_pts'][sel_SC].values.item()
-                                    self.ent[(A_t, 'Formula')][m].append(pts)
-                                    self.ent[(A_t, 'R_ref')][m].append(text)
+                                if self.sc['response_'+str(n+1)+'_pts'][sel_sc].values.item() > 0:
+                                    text = self.sc['response_'+str(n+1)+'_text'][sel_sc].values.item()
+                                    pts = self.sc['response_'+str(n+1)+'_pts'][sel_sc].values.item()
+                                    self.ent[(a_t, 'Formula')][m].append(pts)
+                                    self.ent[(a_t, 'R_ref')][m].append(text)
                                  
-                            for ref in range(len(self.ent[(A_t, 'R_ref')][m])):
-                                for r in range(len(self.ent[(A_t, 'R')][m])):
-                                    if self.ent[(A_t, 'R')][m][r] in self.ent[(A_t, 'R_ref')][m][ref]:
+                            for ref in range(len(self.ent[(a_t, 'R_ref')][m])):
+                                for r in range(len(self.ent[(a_t, 'R')][m])):
+                                    if self.ent[(a_t, 'R')][m][r] in self.ent[(a_t, 'R_ref')][m][ref]:
         ## 2.b evaluate Single Choice task
-                                        P += self.ent[(A_t, 'Formula')][m][ref]
-                            self.ent.loc[m, (A_t, 'Pkt')] = P 
+                                        P += self.ent[(a_t, 'Formula')][m][ref]
+                            self.ent.loc[m, (a_t, 'Pkt')] = P
                         except: 
-                            print('### skipped Single Choice task', A_t, 'of member', m, '###')
-                            self.ent.loc[m,(A_t, 'Pkt')] = 0
+                            print('### skipped Single Choice task', a_t, 'of member', m, '###')
+                            self.ent.loc[m,(a_t, 'Pkt')] = 0
             ## if task is task for test correction
-                elif self.ent[(A_t, 'Title')][m] == "Bitte ignorieren!":
-                    self.ent.loc[m,(A_t, 'Pkt')] = 0
+                elif self.ent[(a_t, 'Title')][m] == "Bitte ignorieren!":
+                    self.ent.loc[m,(a_t, 'Pkt')] = 0
             ## if no task is identified
                 else: 
                     # find not identified tasks in ILIAS_results
                     if any(sel_c): 
                         # get Points achieved according to ILIAS
-                        self.ent.loc[m,(A_t, 'Pkt_ILIAS')] = self.r_ilias.iloc[row_r, sel_c].values.item()
-                        self.ent.loc[m,(A_t, 'Pkt')] = self.ent[(A_t, 'Pkt_ILIAS')][m]
+                        self.ent.loc[m,(a_t, 'Pkt_ILIAS')] = self.r_ilias.iloc[row_r, sel_c].values.item()
+                        self.ent.loc[m,(a_t, 'Pkt')] = self.ent[(a_t, 'Pkt_ILIAS')][m]
                     # contradiction! task doesn't exist
                     else:
                         print ("### Member", m, ", task", t+1, ",",
-                               self.ent[(A_t, 'Title')][m],
+                               self.ent[(a_t, 'Title')][m],
                                "doesn't exist in task pool or ILIAS_results! ###")
         ## if there are no ILIAS results for single task available, take the aggregated ones
             if not any(sel_c):
@@ -450,7 +450,7 @@ def import_psso_members(psso_import: list):
 
 def evaluate_bonus(members: pd.DataFrame, 
                    praktika: pd.DataFrame, 
-                   bonus_tests: Test = None, 
+                   bonus_tests: list = None,
                    bonus_ges: pd.DataFrame = None, 
                    scheme: pd.Series = None,
                    tests_p_bonus: int = 2, 
@@ -516,7 +516,7 @@ def evaluate_bonus(members: pd.DataFrame,
 
 
 def evaluate_exam(members: pd.DataFrame, 
-                  exam: Test, 
+                  exam: list,
                   scheme: pd.Series, 
                   max_pts: int = 40):
     """evaluation of the final exam and course note and returns members['Note']
