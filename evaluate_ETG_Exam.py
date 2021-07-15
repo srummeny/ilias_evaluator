@@ -2,7 +2,7 @@
 Script of ETG Exam evaluation
 Author: Silvan Rummeny
 """
-import ILIAS_evaluator_V2_0 as ev
+import ilias_evaluator as ev
 import pandas as pd
 import numpy as np
 import glob
@@ -110,8 +110,8 @@ for c in range(len(considered_tests)):
     exam.append(ev.Test(members, marker, considered_tests[c],
                                       result_import[c], import_pool_FF[c], 
                                       import_pool_SC[c]))
-    print("process ILIAS-data...")
-    exam[c].process_ILIAS_Data()
+    print("process ILIAS data...")
+    exam[c].process_d_ilias()
     print("process task pools and evaluate...")
     exam[c].process_Pools()
     
