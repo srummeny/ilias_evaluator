@@ -113,10 +113,10 @@ for c in range(len(considered_tests)):
     print("process ILIAS data...")
     exam[c].process_d_ilias()
     print("process task pools and evaluate...")
-    exam[c].process_Pools()
+    exam[c].process_pools()
     
 print("evaluate exam...")
-[members, all_entries] = ev.evaluate_exam(members, exam, scheme, max_exam_points=41) 
+[members, all_entries] = ev.evaluate_exam(members, exam, scheme, max_pts=41) 
 print ('export results as excel...')
 drop_columns = ['Name_']
 members.drop(drop_columns, axis=1).to_excel(Filename_Export, index=False, na_rep='N/A')

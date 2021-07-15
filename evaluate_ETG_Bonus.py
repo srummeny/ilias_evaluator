@@ -18,9 +18,9 @@ scheme = pd.Series(data= [0,    70],
                    index=['NB','BE'])
 considered_tests = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 import_dir = 'ETG_SS21_ZT/'
-result_file_identifier = '_results'
-pool_FF_file_identifier = 'Formelfrage'
-pool_SC_file_identifier = 'SingleChoice'
+result_id = '_results'
+ff_pool_id = 'Formelfrage'
+sc_pool_id = 'SingleChoice'
 result_import = []
 import_pool_FF = []
 import_pool_SC = []
@@ -42,12 +42,16 @@ marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft]
 # find all import data and pools in directory
 for j in considered_tests:
     for i in range(len(glob.glob(import_dir+str(j)+'/*.xlsx'))):
-        if result_file_identifier in glob.glob(import_dir+str(j)+'/*.xlsx')[i]:
-            result_import.append(glob.glob(import_dir+str(j)+'/*.xlsx')[i])
-        if pool_FF_file_identifier in glob.glob(import_dir+str(j)+'/*.xlsx')[i]:
-            import_pool_FF.append(glob.glob(import_dir+str(j)+'/*.xlsx')[i])
-        if pool_SC_file_identifier in glob.glob(import_dir+str(j)+'/*.xlsx')[i]:
-            import_pool_SC.append(glob.glob(import_dir+str(j)+'/*.xlsx')[i])
+        dir_i = glob.glob(import_dir+str(j)+'/*.xlsx')[i]
+        if result_id in dir_i or ff_pool_id in dir_i or sc_pool_id in dir_i:
+            if result_id in dir_i:
+                result_import.append(glob.glob(import_dir+str(j)+'/*.xlsx')[i])
+            elif ff_pool_id in dir_i:
+                import_pool_FF.append(glob.glob(import_dir+str(j)+'/*.xlsx')[i])
+            elif sc_pool_id in dir_i:
+                import_pool_SC.append(glob.glob(import_dir+str(j)+'/*.xlsx')[i])
+        else:
+            result_import.append(None)
 ### disable here
 
 # read ILIAS-members as DataFrame members
@@ -85,7 +89,7 @@ for zt in range(len(considered_tests)):
     print("process ILIAS data...")
     intermediate_tests[zt].process_d_ilias()
     print("process task pools and evaluate...")
-    intermediate_tests[zt].process_Pools()
+    intermediate_tests[zt].process_pools()
     
 print("evaluate bonus...")
 [members, course_data]= ev.evaluate_bonus(members, praktika, 
