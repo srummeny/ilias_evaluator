@@ -145,7 +145,7 @@ class Test:
         for p in range(len(self.d_ilias)):  
     ## 2. Find name of participant and match it with self.members
             name = self.d_ilias[p].columns[0] 
-            print(p, name)
+            # print(p, name)
             # match name with self.members['Name_']
             if self.members['Name_'].str.contains(name).any():
                 # check if name is in  self.members['Name']
@@ -158,8 +158,7 @@ class Test:
             if any(p_sel):
                 i_mem = self.members['Name_'][p_sel].index.values.item()
             else: 
-                print('### Participant',p, name,'skipped, because it is not in\
-                      ILIAS member list! ###')
+                print('### Participant',p, name,'skipped, because it is not in ILIAS member list! ###')
                 continue
             # (re-)set i_run and i_task 
             i_run = 0 
@@ -263,7 +262,7 @@ class Test:
     ## 1. Get row in r_ilias of participants valid run
             row_r = self.row_finder['row_valid'][sel_m].values.item()
             if self.members['Benutzername'].isna()[m]:
-                print(row_r)
+                # print(row_r)
                 self.members.loc[m,'Benutzername'] = self.r_ilias.iloc[row_r,0]
             # iterate every tasks
             for t in range(self.ent.columns.levshape[0]): 
