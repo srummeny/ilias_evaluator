@@ -44,6 +44,7 @@ __author__ = 'srummeny'
 import pandas as pd
 import numpy as np
 from math import *
+import glob
 
 
 class Test:
@@ -56,8 +57,8 @@ class Test:
                  marker: list,
                  name: int or str,
                  ilias_export: str,
-                 ff: str,
-                 sc: str):
+                 ff: str=None,
+                 sc: str=None):
         """
         Parameters
         -----------
@@ -72,9 +73,9 @@ class Test:
         ilias_export: str
             path of the ILIAS result and data import file
         ff: str
-            path of Formelfrage task pool
+            path of Formelfrage task pool, default is None
         sc: str
-            path of SingleChoice task pool
+            path of SingleChoice task pool, default in None
         """
         self.members = members
         self.marker = marker
@@ -82,8 +83,12 @@ class Test:
         # 1. read task pool data
         if ff is not None:
             self.ff = pd.read_excel(ff, sheet_name='Formelfrage - Database')
+        else:
+            self.ff = None
         if sc is not None:
             self.sc = pd.read_excel(sc, sheet_name='SingleChoice - Database')
+        else: 
+            self.sc = None
         print("excel task pools OK")
         print("read ILIAS-data...")
         df = pd.ExcelFile(ilias_export)
@@ -116,7 +121,7 @@ class Test:
         c_ent = pd.MultiIndex.from_arrays([i_tasks, i_sub], names=['task', 'parameter'])
         self.ent = pd.DataFrame(index=self.members.index, columns=c_ent)
 
-    def process_d_ilias(self):
+    def process_ilias(self):
         """ processes ILIAS Data for the test and saves it in self.ent for
         all members
         
@@ -148,16 +153,16 @@ class Test:
             # 2. Find name of participant and match it with self.members
             # match name with self.members['Name_']
             if self.members['Name_'].str.contains(name).any():
-                # check if name is in  self.members['Name']
+                # check if name is in  self.members['Name_']
                 p_sel = self.members['Name_'].str.contains(name)
             else:
-                # check if  self.members['Name'] is in name
+                # check if  self.members['Name_'] is in name
                 p_sel = [self.members['Name_'].values[i] in name for i in range(len(self.members))]
             # get member index in self.members 
             if any(p_sel):
                 i_mem = self.members['Name_'][p_sel].index.values.item()
             else:
-                print('### Participant', p, name, 'skipped, because it is not in ILIAS member list! ###')
+                print('### Skipped participant', p, name, ', because it is not in PSSO member list! ###')
                 continue
             # (re-)set i_run and i_task 
             i_run = 0
@@ -209,10 +214,10 @@ class Test:
                         self.ent.loc[i_mem, (a_t, 'R')].append(txt)
             # 4. Create self.row_finder of valid results according to ILIAS
             try:  # try to find row of Name in r_ilias (identical)
-                row = self.r_ilias.index.get_loc(self.members['Name'][i_mem])
+                row = self.r_ilias.index.get_loc(name)
             except KeyError:  # try to find row of Name in r_ilias (containing)
                 names = self.r_ilias.index.dropna()
-                name_sel = [self.members['Name'][i_mem] in names[i] for i in range(len(names))]
+                name_sel = [name in names[i] for i in range(len(names))]
                 row = self.r_ilias.index.get_loc(names[name_sel].values.item())
             self.row_finder.loc[p, 'i_mem'] = i_mem
             self.row_finder.loc[p, 'row_init'] = row
@@ -225,15 +230,12 @@ class Test:
                 # find number of valid run in ILIAS_results
                 i_val = self.r_ilias['Bewerteter Durchlauf'][row].astype(int) - 1
                 if i_val > 0:  # only if first run =! valid run
-                    try:  # try to find row of next participant in ILIAS_results
-                        next_row = self.row_finder['row_init'][i + 1]
-                    except KeyError:  # there is no next participant in ILIAS_results
-                        next_row = None
                     # get row of valid_run according to i_val
-                    i_run = self.r_ilias['Durchlauf'][row:next_row].values
-                    sel_v = [float(i_val + 1) == i_run[i] for i in range(len(i_run))]
-                    i_bew = np.where(sel_v)[0].item()
-                    self.row_finder.loc[i, 'row_valid'] = row + i_bew
+                    i_run = self.r_ilias['Durchlauf'][row:].values
+                    j=0
+                    while float(i_val + 1) != i_run[j]:
+                        j += 1
+                    self.row_finder.loc[i, 'row_valid'] = row + j
                 else:  # first run == the valid run
                     self.row_finder.loc[i, 'row_valid'] = row
 
@@ -253,12 +255,13 @@ class Test:
         self.marker: list
             marker list to identify runs, tasks, variables or results
         """
-        # iterate all participating members
+        # iterate all participating members and skip not participating members
         participants = self.ent.any(axis=1)
         for m in self.ent.index[participants].to_list():
             sel_m = self.row_finder['i_mem'] == float(m)
         # 1. Get row in r_ilias of participants valid run
             row_r = self.row_finder['row_valid'][sel_m].values.item()
+            # get ilias benutzername from r_ilias if it is NaN
             if self.members['Benutzername'].isna()[m]:
                 # print(row_r)
                 self.members.loc[m, 'Benutzername'] = self.r_ilias.iloc[row_r, 0]
@@ -449,70 +452,187 @@ def import_psso_members(psso_import: list):
                                      ignore_index=True)
     return psso_members
 
+def get_excel_files(considered_tests: list,
+                    import_dir: str, 
+                    identifier: list=['_results', 'Formelfrage', 'SingleChoice']):
+    """ algorithm to collect all excel input data for several considered tests
+    
+    Parameters
+    -------------------
+    considered_tests: list
+        list of names of the considered tests (e.g. [1, 2, 4, 7] or ['Test1, Test_xy, Test_final'])
+    import_dir: str
+        directory containing import data
+    identifier: list
+        list of identifiers for ILIAS result files ('_results'), Formelfrage or Single Choice task pools
+    """
+    # init outputs
+    result_files = []
+    pool_ff_files = []
+    pool_sc_files = []
+    for j in considered_tests:
+        j_i = considered_tests.index(j)
+        result_files.append([])
+        pool_ff_files.append([])
+        pool_sc_files.append([])
+    # iterate all found files
+        for i in range(len(glob.glob(import_dir+str(j)+'/*.xlsx'))):
+            file = glob.glob(import_dir+str(j)+'/*.xlsx')[i]
+            if identifier[0] in file or identifier[1] in file or identifier[2] in file:
+                if identifier[0] in file:
+                    result_files[j_i].append(file)
+                elif identifier[1] in file:
+                    pool_ff_files[j_i].append(file)
+                elif identifier[2] in file:
+                    pool_sc_files[j_i].append(file)
+            else:
+                result_files[j_i].append(None)
+    return result_files, pool_ff_files, pool_sc_files
 
-def evaluate_bonus(members: pd.DataFrame,
-                   praktika: pd.DataFrame,
-                   bonus_tests: list = None,
-                   bonus_ges: pd.DataFrame = None,
-                   scheme: pd.Series = None,
-                   tests_p_bonus: int = 2,
-                   max_bonus: int = 5):
-    """evaluation of bonus of a course and returns members['Bonus_Pkt'] 
+
+def evaluate_intermediate_tests(members: pd.DataFrame,
+                                zt_tests: list = None,
+                                d_course: pd.DataFrame = None,
+                                scheme: pd.Series = None,
+                                tests_p_bonus: int = 2):
+    """evaluation of intermediate test bonus of a course and returns members['Bonus_ZT'] 
     and full DataFrame of bonus_ges
     
     Parameters
     -------------
     members: pd.DataFrame
         DataFrame of all course members incl. Name, Matrikelnr., etc.
-    praktika: pd.DataFrame
-        DataFrame of bonus achieved from Praktika
-    bonus_tests: list of class Test
-        List of evaluated bonus tests
-    bonus_ges: pd.DataFrame
+    zt_tests: list of class Test
+        List of evaluated intermediate tests
+    d_course: pd.DataFrame
         empty DataFrame containing, Ges_Pkt and Note from each bonus test
     scheme: pd.Series
-        scheme for bonus test evaluation containing note str as index and 
+        scheme for intermediate test evaluation containing note str as index and 
         corresponding percentage limits as values 
     tests_p_bonus: int
         number of bonus tests to get 1 bonus point
+    """
+# 1.a Evaluate intermediate tests
+    if zt_tests is not None:
+        # iterate every intermediate test
+        for zt in range(len(zt_tests)):
+            # iterate every test of one intermediate test
+            for t in zt_tests[zt]:
+                zt_i = 'ZT' + str(t.name)
+                # iterate every participating member
+                for p in t.row_finder['i_mem'].dropna().values:
+                    try:
+                        # determine total points of bonus test
+                        d_course.loc[p, [(zt_i, 'Ges_Pkt')]] = sum(t.ent.loc[p, pd.IndexSlice[:, 'Pkt']])
+                        # get bonus test note
+                        if d_course[(zt_i, 'Ges_Pkt')][p] / t.max_pts >= \
+                                scheme.iloc[1] / 100:
+                            d_course.loc[p, [(zt_i, 'Note')]] = scheme.index[1]
+                        else:
+                            d_course.loc[p, [(zt_i, 'Note')]] = scheme.index[0]
+                    except TypeError:  # evaluation of bonus test failed
+                        print('### skipped Member', p, members.loc[p, 'Name'], 'in test', t.name, '###')
+                test_res = d_course.loc[p, pd.IndexSlice[:, 'Note']].value_counts()
+                if (test_res.index == 'BE').any():
+                    # Get bonus by bonus tests by considering tests_p_bonus
+                    members.loc[p, 'Bonus_ZT'] = floor(test_res['BE'] / tests_p_bonus)
+    return members, d_course
+
+
+def evaluate_praktika(members: pd.DataFrame,
+                      pra_prev: pd.DataFrame,
+                      pra_tests: list = None,
+                      d_course: pd.DataFrame = None,
+                      scheme: pd.Series = None,
+                      tests_p_bonus: int = 1):
+    """evaluation of praktikum bonus of a course and returns members['Bonus_Pra'] 
+    and full DataFrame of bonus_ges
+    
+    Parameters
+    -------------
+    members: pd.DataFrame
+        DataFrame of all course members incl. Name, Matrikelnr., etc.
+    pra_prev: pd.DataFrame
+        DataFrame of bonus achieved from Praktika of previous semesters
+    pra_tests: list of class Test
+        List of evaluated Praktika tests
+    d_course: pd.DataFrame
+        empty DataFrame containing, Ges_Pkt and Note from each bonus test
+    scheme: pd.Series
+        scheme for Praktika test evaluation containing note str as index and 
+        corresponding percentage limits as values 
+    tests_p_bonus: int
+        number of bonus tests to get 1 bonus point
+    """        
+    """
+    TODO: apply adjustments for praktikum evaluation:
+        - write new praktikum in old praktikum
+    """
+# 1.a Evaluate Praktika tests
+    if pra_tests is not None:
+        # iterate every experiment 
+        for exp in range(len(pra_tests)):
+            # iterate every test of one experiment
+            for t in pra_tests[exp]:
+                # iterate every participating member of test
+                for p in t.row_finder['i_mem'].dropna().values:
+                    pra_i = 'V' + str(t.name)
+                    # do an own evaluation, when a scheme is given 
+                    if scheme is not None: 
+                        try:
+                            # determine total points of bonus test
+                            d_course.loc[p, [(pra_i, 'Ges_Pkt')]] = sum(t.ent.loc[p, pd.IndexSlice[:, 'Pkt']])
+                            # get bonus test note
+                            if d_course[(pra_i, 'Ges_Pkt')][p] / t.max_pts >= \
+                                    scheme.iloc[1] / 100:
+                                d_course.loc[p, [(pra_i, 'Note')]] = scheme.index[1]
+                            else:
+                                d_course.loc[p, [(pra_i, 'Note')]] = scheme.index[0]
+                        except TypeError:  # evaluation of bonus test failed
+                            print('### skipped Member', p, members.loc[p, 'Name'], 'in praktikum experiment', t.name, '###')
+                    # if scheme is None, take the evaluation of the ILIAS system
+                    else: 
+                        sel_m = t.row_finder['i_mem'] == float(p)
+                        # 1. Get row in r_ilias of participants valid run))
+                        row_i = t.row_finder['row_init'][sel_m].values.item() 
+                        d_course.loc[p, [(pra_i, 'Ges_Pkt')]] = t.r_ilias.loc[t.r_ilias.index[row_i], 'Testergebnis in Punkten']
+                        if t.r_ilias.loc[t.r_ilias.index[row_i], 'Testergebnis als Note']=='bestanden': 
+                            d_course.loc[p, [(pra_i, 'Note')]] = 'BE'
+                        else:
+                            d_course.loc[p, [(pra_i, 'Note')]] = 'NB'
+                test_res = d_course.loc[p, pd.IndexSlice[:, 'Note']].value_counts()
+                if (test_res.index == 'BE').any():
+                # Get bonus by bonus tests by considering tests_p_bonus
+                    members.loc[p, 'Bonus_Pra'] = floor(test_res['BE'] / tests_p_bonus)
+    else:
+# 1.b Or get bonus by old Praktikum
+        # iterate every member
+        for p in members.index.to_list():
+            if any(pra_prev['Matrikelnr.'] == members['Matrikelnummer'][p]):
+                # match values by Matrikelnummer
+                sel = pra_prev['Matrikelnr.'] == members['Matrikelnummer'][p]
+                members.loc[p, 'Bonus_Pra'] = max(pra_prev['Summe'][sel])
+    return members, d_course
+
+
+def evaluate_bonus(members: pd.DataFrame,
+                   max_bonus: int = 5):
+    """evaluation of total bonus points of a course and returns members['Bonus_Pkt'] 
+    
+    Parameters
+    -------------
+    members: pd.DataFrame
+        DataFrame of all course members incl. Name, Matrikelnr., etc.
     max_bonus: int
         maximum achievable bonus points
     """
     # iterate every member
     for p in members.index.to_list():
-        # add Bonus_ZT of member only when there are bonus tests available
-        if bonus_tests is not None:
-            for t in bonus_tests:
-                zt_i = 'ZT' + str(t.name)
-    # 1. Evaluate bonus tests
-                try:
-                    # determine total points of bonus test
-                    bonus_ges.loc[p, [(zt_i, 'Ges_Pkt')]] = sum(t.ent.loc[p, pd.IndexSlice[:, 'Pkt']])
-                    # get bonus test note
-                    if bonus_ges[(zt_i, 'Ges_Pkt')][p] / t.max_pts >= \
-                            scheme.iloc[1] / 100:
-                        bonus_ges.loc[p, [(zt_i, 'Note')]] = scheme.index[1]
-                    else:
-                        bonus_ges.loc[p, [(zt_i, 'Note')]] = scheme.index[0]
-                except TypeError:  # evaluation of bonus test failed
-                    print('### skipped Member', p, members.loc[p, 'Name'], 'in test', t.name, '###')
-            test_res = bonus_ges.loc[p, pd.IndexSlice[:, 'Note']].value_counts()
-            if (test_res.index == 'BE').any():
-                # Get bonus by bonus tests by considering tests_p_bonus
-                members.loc[p, 'Bonus_ZT'] = floor(test_res['BE'] / tests_p_bonus)
-    # 2. Evaluate bonus by Praktikum
-        if any(praktika['Matrikelnr.'] == members['Matrikelnummer'][p]):
-            # match values by Matrikelnummer
-            sel = praktika['Matrikelnr.'] == members['Matrikelnummer'][p]
-            members.loc[p, 'Bonus_Pra'] = max(praktika['Summe'][sel])
     # 3. Determine total bonus
-            members.loc[p, 'Bonus_Pkt'] = min(max_bonus,
-                                              np.nansum([members.loc[p, 'Bonus_Pra'],
-                                                         members.loc[p, 'Bonus_ZT']]))
-        else:  # member got no bonus by Praktikum
-            members.loc[p, 'Bonus_Pkt'] = min(max_bonus,
-                                              members.loc[p, 'Bonus_ZT'])
-    return members, bonus_ges
+        members.loc[p, 'Bonus_Pkt'] = min(max_bonus,
+                                          np.nansum([members.loc[p, 'Bonus_Pra'],
+                                                     members.loc[p, 'Bonus_ZT']]))
+    return members
 
 
 def evaluate_exam(members: pd.DataFrame,
