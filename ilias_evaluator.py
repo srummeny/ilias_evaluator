@@ -478,6 +478,7 @@ def get_excel_files(considered_tests: list,
     # iterate all found files
         for i in range(len(glob.glob(import_dir+str(j)+'/*.xlsx'))):
             file = glob.glob(import_dir+str(j)+'/*.xlsx')[i]
+            print(file)
             if identifier[0] in file or identifier[1] in file or identifier[2] in file:
                 if identifier[0] in file:
                     result_files[j_i].append(file)
@@ -513,6 +514,7 @@ def evaluate_intermediate_tests(members: pd.DataFrame,
         number of bonus tests to get 1 bonus point
     """
 # 1.a Evaluate intermediate tests
+    zt_filter = [col for col in d_course.columns.get_level_values(0) if col.startswith('ZT')]
     if zt_tests is not None:
         # iterate every intermediate test
         for zt in range(len(zt_tests)):
@@ -532,10 +534,10 @@ def evaluate_intermediate_tests(members: pd.DataFrame,
                             d_course.loc[p, [(zt_i, 'Note')]] = scheme.index[0]
                     except TypeError:  # evaluation of bonus test failed
                         print('### skipped Member', p, members.loc[p, 'Name'], 'in test', t.name, '###')
-                test_res = d_course.loc[p, pd.IndexSlice[:, 'Note']].value_counts()
-                if (test_res.index == 'BE').any():
-                    # Get bonus by bonus tests by considering tests_p_bonus
-                    members.loc[p, 'Bonus_ZT'] = floor(test_res['BE'] / tests_p_bonus)
+                    test_res = d_course.loc[p, pd.IndexSlice[zt_filter, 'Note']].value_counts()
+                    if (test_res.index == 'BE').any():
+                        # Get bonus by bonus tests by considering tests_p_bonus
+                        members.loc[p, 'Bonus_ZT'] = floor(test_res['BE'] / tests_p_bonus)
     return members, d_course
 
 
@@ -569,6 +571,7 @@ def evaluate_praktika(members: pd.DataFrame,
         - write new praktikum in old praktikum
     """
 # 1.a Evaluate Praktika tests
+    pra_filter = [col for col in d_course.columns.get_level_values(0) if col.startswith('V')]
     if pra_tests is not None:
         # iterate every experiment 
         for exp in range(len(pra_tests)):
@@ -600,7 +603,7 @@ def evaluate_praktika(members: pd.DataFrame,
                             d_course.loc[p, [(pra_i, 'Note')]] = 'BE'
                         else:
                             d_course.loc[p, [(pra_i, 'Note')]] = 'NB'
-                test_res = d_course.loc[p, pd.IndexSlice[:, 'Note']].value_counts()
+                test_res = d_course.loc[p, pd.IndexSlice[pra_filter, 'Note']].value_counts()
                 if (test_res.index == 'BE').any():
                 # Get bonus by bonus tests by considering tests_p_bonus
                     members.loc[p, 'Bonus_Pra'] = floor(test_res['BE'] / tests_p_bonus)
@@ -666,8 +669,14 @@ def evaluate_exam(members: pd.DataFrame,
     # 2. Determine reached Pkt including bonus
                 members.loc[p, 'Ges_Pkt'] = members.loc[p, 'Exam_Pkt'] + members.loc[p, 'Bonus_Pkt']
     # 3. Evaluate course note of participant
-                n_sel = members.loc[p, 'Ges_Pkt'] / max_pts * 100 >= scheme
-                members.loc[p, 'Note'] = n_sel[n_sel is True].index[-1]
+                if members.loc[p, 'Ges_Pkt'] == np.nan: 
+                    members.loc[p, 'Note'] = scheme[0][0]
+                else:
+                    print(members.loc[p, 'Ges_Pkt'])
+                    n_sel = members.loc[p, 'Ges_Pkt'] / max_pts * 100 >= scheme
+                    # print(n_sel)
+                    print(n_sel.index[n_sel])
+                    # members.loc[p, 'Note'] = scheme[0][n_sel.index[n_sel][-1]]
             except TypeError:
                 print('### Exam and note evaluation failed for Member', p,
                       members.loc[p, 'Name'], 'in test', exam[c].name, '###')
