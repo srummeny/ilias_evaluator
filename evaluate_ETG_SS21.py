@@ -57,7 +57,7 @@ pra_dir = 'ETG_SS21_Praktikum/'
 # Specific constants for Exam
 exam_scheme = pd.Series(data= [0,    44,   49,   53,   58,   62,   67,   71,   76,   80,   84],
                         index=["5,0","4,0","3,7","3,3","3,0","2,7","2,3","2,0","1,7","1,3","1,0"]) 
-exam_cohort = ['Kohorte A', 'Kohorte F']
+exam_cohort = ['Kohorte A', 'Kohorte B', 'Kohorte C', 'Kohorte D', 'Kohorte E', 'Kohorte F']
 exam_dir = 'ETG_SS21_Exam/'
 
 # find all import data and pools in directory
@@ -161,18 +161,18 @@ course_data.loc[96, ('V2', 'Note')] = 'BE'
 members = ev.evaluate_bonus(members)
 #
 ########### LOOP of evaluating all considered exam cohorts ############
-#exam = []
-#for c in range(len(exam_cohort)):
-#    print('started evaluating exam,', exam_cohort[c])
-#    exam.append(ev.Test(members, marker, exam_cohort[c],
-#                        exam_ilias_result[c], ff=exam_pool_ff[c], sc=exam_pool_sc[c]))
-#    print("process ILIAS data...")
-#    exam[c].process_ilias()
-#    print("process task pools and evaluate...")
-#    exam[c].process_pools()
-#    
-#print("evaluate exam...")
-#[members, all_entries] = ev.evaluate_exam(members, exam, exam_scheme, max_pts=41) 
+exam = []
+for c in range(len(exam_cohort)):
+    print('started evaluating exam,', exam_cohort[c])
+    exam.append(ev.Test(members, marker, exam_cohort[c],
+                        exam_ilias_result[c][0], ff=exam_pool_ff[c][0], sc=exam_pool_sc[c][0]))
+    print("process ILIAS data...")
+    exam[c].process_ilias()
+    print("process task pools and evaluate...")
+    exam[c].process_pools()
+    
+print("evaluate exam...")
+[members, all_entries] = ev.evaluate_exam(members, exam, exam_scheme, max_pts=41) 
 #print ('export results as excel...')
 #drop_columns = ['Name_']
 #members.drop(drop_columns, axis=1).to_excel(Filename_Export, index=False, na_rep='N/A')
