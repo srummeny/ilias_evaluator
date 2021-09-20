@@ -94,8 +94,8 @@ for i in range(len(members)):
         continue
     members.loc[i,'Benutzername'] = ilias_mem['Benutzername'][mtknr_sel].values.item()
     members.loc[i,'E-Mail'] = ilias_mem['E-Mail'][mtknr_sel].values.item()
-# remove ' from Names to get ILIAS equivalent names
-members['Name_'] = members['Name_'].str.replace("'", "")
+## remove ' from Names to get ILIAS equivalent names
+#members['Name_'] = members['Name_'].str.replace("'", "")
 print('PSSO member import OK')
 
 ########## LOOP of evaluating all considered exam cohorts ############
