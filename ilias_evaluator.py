@@ -38,7 +38,7 @@ TODO:
         Freitextaufgabe
 @author: Silvan Rummeny"""
 
-__version__ = '2.0'
+__version__ = '2.1'
 __author__ = 'srummeny'
 
 import pandas as pd
@@ -190,6 +190,7 @@ class Test:
                     self.ent.loc[i_mem, (a_t, 'Title')] = title
                     self.ent.loc[i_mem, (a_t, 'Var')] = [None] * 15
                     self.ent.loc[i_mem, (a_t, 'R')] = []  # [None]*10
+                    self.R_sc = [[],[]]
                 # is there a new variable or result?
                 elif (txt.startswith(var_marker) or
                       txt.startswith(res_marker) or
@@ -210,8 +211,11 @@ class Test:
                     """
                 else:
                     # catch selected Single-Choice-Answeres (no marker used)
-                    if self.d_ilias[p]['values'][i] == 1:
-                        self.ent.loc[i_mem, (a_t, 'R')].append(txt)
+                    self.ent.loc[i_mem, (a_t, 'R')] = [[],[]]
+                    pts = self.d_ilias[p]['values'][i]
+                    self.R_sc[0].append(pts)
+                    self.R_sc[1].append(txt) 
+                    self.ent.loc[i_mem, (a_t, 'R')] = self.R_sc
             # 4. Create self.row_finder of valid results according to ILIAS
             try:  # try to find row of Name in r_ilias (identical)
                 row = self.r_ilias.index.get_loc(name)
@@ -278,10 +282,17 @@ class Test:
                 # is the task title in represented in r_ilias?
                 sel_c = self.r_ilias.columns == self.ent[(a_t, 'Title')][m]
                 # proof if task title is unique
+                sel_sc12 = None
                 if len(self.ff[sel_ff]) > 1 or len(self.sc[sel_sc]) > 1:
                     print('### Task title "', self.ent[(a_t, 'Title')][m],
                           '" is not unique! ###')
-                    continue
+                    # added special case for exam of 13.09.2021
+                    if len(self.sc[sel_sc])==2:
+                        sel_sc12 = [sel_sc.copy(), sel_sc.copy()]
+                        sel_sc12[0][8] = False
+                        sel_sc12[1][7] = False
+                    else:
+                        continue
             # if task type is Formelfrage
                 if any(sel_ff):
                     sel_formula = self.ff.loc[sel_ff, self.ff.columns.str.contains('formula')]
@@ -294,6 +305,7 @@ class Test:
                     for n in range(sum([sel_formula.iloc[0] != ' '][0])):
                         formula = self.ff['res' + str(n + 1) + '_formula'][sel_ff].astype(str).item()
                         tol = self.ff['res' + str(n + 1) + '_tol'][sel_ff].item()
+                        prec = self.ff['res' + str(n + 1) + '_prec'][sel_ff].item()
                         var = self.ent[(a_t, 'Var')][m]
                         self.ent[(a_t, 'Formula')][m].append(formula)
                         self.ent[(a_t, 'Tol')][m].append(tol)
@@ -310,8 +322,8 @@ class Test:
                             else:
                                 input_res.append(r_ref)
                                 self.ent[(a_t, 'R_ref')][m].append(r_ref)
-                                r_min = min(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100))
-                                r_max = max(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100))
+                                r_min = round(min(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100)), prec)
+                                r_max = round(max(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100)), prec)
                                 r_entry = self.ent[(a_t, 'R')][m][n]
                                 # if the entered result = str (e.g. when fractions are entered)
                                 if type(r_entry) == str:
@@ -335,24 +347,74 @@ class Test:
                         self.ent.loc[m, (a_t, 'Pkt')] = self.ent[(a_t, 'Pkt_ILIAS')][m]
                     else:
                         # get number of answeres                        
-                        sel_text = self.sc.loc[sel_sc, self.sc.columns.str.contains('text')]
-                        self.ent[(a_t, 'Formula')][m] = []
-                        self.ent[(a_t, 'Tol')][m] = []
-                        self.ent[(a_t, 'Pkt')][m] = []
-                        self.ent[(a_t, 'R_ref')][m] = []
-                        # iterate number of answer texts / results of that task
-                        for n in range(sum([sel_text.iloc[0] != ' '][0])):
-                            # get the correct answer and save it in self.ent
-                            if self.sc['response_' + str(n + 1) + '_pts'][sel_sc].values.item() > 0:
+                        # # if the single choice title is ambiguous
+                        if sel_sc12 is not None:
+                            pkts = [0, 0]
+                            for sel_sc in sel_sc12:
+                                sel_pts = self.sc.loc[sel_sc, self.sc.columns.str.contains('_pts')]
+                                self.ent[(a_t, 'Formula')][m] = [[],[]]
+                                self.ent[(a_t, 'Tol')][m] = []
+                                self.ent[(a_t, 'Pkt')][m] = []
+                                self.ent[(a_t, 'R_ref')][m] = []
+                                # iterate number of answer texts / results of that task
+                                for n in range(len(sel_pts.squeeze().dropna())):
+                                    # get the correct answer and save it in self.ent
+                                    text = self.sc['response_' + str(n + 1) + '_text'][sel_sc].values.item()
+                                    pts = self.sc['response_' + str(n + 1) + '_pts'][sel_sc].values.item()
+                                    self.ent[(a_t, 'Formula')][m][0].append(pts)
+                                    self.ent[(a_t, 'Formula')][m][1].append(text)
+                                    # pick the correct answer
+                                    if pts > 0:
+                                        self.ent[(a_t, 'R_ref')][m].append(text)
+                                # if there is no text available for Single-Choice options
+                                if any(self.ent[(a_t, 'Formula')][m][1][i]==' ' for i in range(len(self.ent[(a_t, 'Formula')][m][1]))):
+                                    # compare pts patterns in Formula and R, e.g. [0, 0, 1] vs. [0, 0, 1] --> correct!
+                                    if self.ent[(a_t, 'Formula')][m][0] == self.ent[(a_t, 'R')][m][0]:
+                                        # select the correct single choice task of the abiguous ones and evaluate this one
+                                        ind = [i for i in range(len(sel_sc12)) if all(sel_sc==sel_sc12[i])]
+                                        pkts[ind[0]] = sum(self.ent[(a_t, 'Formula')][m][0])
+                                # if there is text available for Single-Choice options
+                                else:
+                                    for ref in range(len(self.ent[(a_t, 'R_ref')][m])):
+                                        # filter correct answers
+                                        results = [r for i, r in enumerate(self.ent[(a_t, 'R')][m][1]) if self.ent[(a_t, 'R')][m][0][i]>1]
+                                        for r in range(len(results)):
+                                            if self.ent[(a_t, 'R')][m][r] in self.ent[(a_t, 'R_ref')][m][ref]:
+                                                ind = [i for i in range(len(sel_sc12)) if all(sel_sc==sel_sc12[i])]
+                                                pkts[ind[0]] += self.ent[(a_t, 'Formula')][m][ref]
+        # 2.b evaluate Single Choice task
+                            pkt = max(pkts) 
+                            self.ent.loc[m, (a_t, 'Pkt')] = pkt
+                # if the single choice title is unique
+                        else:
+                            sel_pts = self.sc.loc[sel_sc, self.sc.columns.str.contains('_pts')]
+                            self.ent[(a_t, 'Formula')][m] = [[],[]]
+                            self.ent[(a_t, 'Tol')][m] = []
+                            self.ent[(a_t, 'Pkt')][m] = []
+                            self.ent[(a_t, 'R_ref')][m] = []
+                            # iterate number of answer texts / results of that task
+                            for n in range(len(sel_pts.squeeze().dropna())):
+                                # get the correct answer and save it in self.ent
                                 text = self.sc['response_' + str(n + 1) + '_text'][sel_sc].values.item()
                                 pts = self.sc['response_' + str(n + 1) + '_pts'][sel_sc].values.item()
-                                self.ent[(a_t, 'Formula')][m].append(pts)
-                                self.ent[(a_t, 'R_ref')][m].append(text)
-
-                        for ref in range(len(self.ent[(a_t, 'R_ref')][m])):
-                            for r in range(len(self.ent[(a_t, 'R')][m])):
-                                if self.ent[(a_t, 'R')][m][r] in self.ent[(a_t, 'R_ref')][m][ref]:
-                                    pkt += self.ent[(a_t, 'Formula')][m][ref]
+                                self.ent[(a_t, 'Formula')][m][0].append(pts)
+                                self.ent[(a_t, 'Formula')][m][1].append(text)
+                                # pick the correct answer
+                                if pts > 0:
+                                    self.ent[(a_t, 'R_ref')][m].append(text)
+                            # if there is no text available for Single-Choice options
+                            if any(self.ent[(a_t, 'Formula')][m][1][i]==' ' for i in range(len(self.ent[(a_t, 'Formula')][m][1]))):
+                                # compare pts patterns in Formula and R, e.g. [0, 0, 1] vs. [0, 0, 1] --> correct!
+                                if self.ent[(a_t, 'Formula')][m][0] == self.ent[(a_t, 'R')][m][0]:
+                                    pkt = sum(self.ent[(a_t, 'Formula')][m][0])
+                            # if there is text available for Single-Choice options
+                            else:
+                                for ref in range(len(self.ent[(a_t, 'R_ref')][m])):
+                                    # filter correct answers
+                                    results = [r for i, r in enumerate(self.ent[(a_t, 'R')][m][1]) if self.ent[(a_t, 'R')][m][0][i]>1]
+                                    for r in range(len(results)):
+                                        if self.ent[(a_t, 'R')][m][r] in self.ent[(a_t, 'R_ref')][m][ref]:
+                                            pkt += self.ent[(a_t, 'Formula')][m][ref]
     # 2.b evaluate Single Choice task
                         self.ent.loc[m, (a_t, 'Pkt')] = pkt
             # if task is task for test correction
@@ -370,10 +432,8 @@ class Test:
                         print("### Member", m, ", task", t + 1, ",",
                               self.ent[(a_t, 'Title')][m],
                               "doesn't exist in task pool or ILIAS_results! ###")
-            # if there are no ILIAS results for single task available, take the aggregated ones
-            if not any(sel_c):
-                self.members.loc[m, 'Pkt_ILIAS'] = self.r_ilias.loc[
-                    self.r_ilias.index[row_r], 'Testergebnis in Punkten']
+            # take the aggregated ILIAS results
+            self.members.loc[m, 'ILIAS_Pkt'] = self.r_ilias.loc[self.r_ilias.index[row_r], 'Testergebnis in Punkten']
 
 
 def eval_ilias(formula_ilias: str,
@@ -663,19 +723,19 @@ def evaluate_exam(members: pd.DataFrame,
         participants = exam[c].ent.any(axis=1)
         # iterate every participant
         for p in exam[c].ent.index[participants].to_list():
+            members.loc[p, 'Kohorte'] = exam[c].name
             try:  # to get the exam note
                 members.loc[p, 'Exam_Pkt'] = sum(exam[c].ent.loc[p, pd.IndexSlice[:, 'Pkt']])
     # 1. Determine reached Pkt by exam
     # 2. Determine reached Pkt including bonus
-                members.loc[p, 'Ges_Pkt'] = members.loc[p, 'Exam_Pkt'] + members.loc[p, 'Bonus_Pkt']
+                members.loc[p, 'Ges_Pkt'] = np.nansum([members.loc[p, 'Exam_Pkt'], members.loc[p, 'Bonus_Pkt']])
     # 3. Evaluate course note of participant
                 if members.loc[p, 'Ges_Pkt'] == np.nan: 
                     members.loc[p, 'Note'] = scheme[0][0]
                 else:
-                    print(members.loc[p, 'Ges_Pkt'])
                     n_sel = members.loc[p, 'Ges_Pkt'] / max_pts * 100 >= scheme
                     # print(n_sel)
-                    print(n_sel.index[n_sel])
+                    members.loc[p, 'Note'] = n_sel.index[n_sel][-1]
                     # members.loc[p, 'Note'] = scheme[0][n_sel.index[n_sel][-1]]
             except TypeError:
                 print('### Exam and note evaluation failed for Member', p,
@@ -683,4 +743,11 @@ def evaluate_exam(members: pd.DataFrame,
     # 4. Create pd.DataFrame containing all entries of all cohorts together
         # overwrite all_entries (usually nan-rows) by values of exam[c].ent
         all_entries.update(exam[c].ent)
+    n_all = len(members['Note'])
+    n_part = len(members['Note'].dropna())
+    n_fail = len(members[members['Note']=='5,0'])
+    print(n_part, 'of', n_all, 'registered members participated in the exam:', round(n_part/n_all*100, 2), '%')
+    print('of which', n_fail, 'members have failed the exam:', round(n_fail/n_part*100, 2), '%')
+    print('Accordingly', n_part-n_fail, 'members have passed the exam:', round((n_part-n_fail)/n_part*100, 2), '%')
+    print(members['Note'].value_counts().sort_index())
     return members, all_entries
