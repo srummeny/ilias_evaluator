@@ -92,6 +92,7 @@ members['Bonus_Pra'] = np.nan
 members['Bonus_Pkt'] = np.nan
 members['Exam_Pkt'] = np.nan
 members['Ges_Pkt'] = np.nan
+members['ILIAS_Pkt'] = np.nan
 members['Note'] = np.nan
 for i in range(len(members)): 
 # add a space behind the komma of the name
@@ -121,46 +122,46 @@ course_data = pd.DataFrame(index=members.index, columns=c_tests)
 
 ### disable here
 ########## LOOP of evaluating all considered intermediate tests ############
-intermediate_tests = []
-for zt in range(len(zt_test)):
-    intermediate_tests.append([])
-    for sub in range(len(zt_ilias_result[zt])):
-        print('started evaluating intermediate test', zt_test[zt])
-        intermediate_tests[zt].append(ev.Test(members, marker, zt_test[zt],
-                                          zt_ilias_result[zt][sub], ff=zt_pool_ff[zt][sub], sc=zt_pool_sc[zt][sub]))
-        print("process ILIAS data...")
-        intermediate_tests[zt][sub].process_ilias()
-        print("process task pools and evaluate...")
-        intermediate_tests[zt][sub].process_pools()
-    
-print("evaluate zt bonus...")
-[members, course_data]= ev.evaluate_intermediate_tests(members, 
-                                                       zt_tests=intermediate_tests, 
-                                                       d_course=course_data,  
-                                                       scheme=zt_scheme)
-########### LOOP of evaluating all considered Praktikum experiments ############
-praktikum = []
-for pra in range(len(pra_experiment)):
-    praktikum.append([])
-    for sub in range(len(pra_ilias_result[pra])):
-        print('started evaluating Praktikum test', pra_ilias_result[pra][sub][21:])
-        praktikum[pra].append(ev.Test(members, marker, pra_experiment[pra],
-                                 pra_ilias_result[pra][sub]))
-        print("process ILIAS data...")
-        praktikum[pra][sub].process_ilias()
-    
-print("evaluate pra bonus...")
-[members, course_data]= ev.evaluate_praktika(members, pra_prev=old_praktika, 
-                                             pra_tests=praktikum, 
-                                             d_course=course_data)
-# Exception for Zeinab Mohammad: "doch im Testdurchlauf 2 bestanden, erfolgloser Testdurchlauf 3 wurde gewertet
-course_data.loc[96, ('V2', 'Ges_Pkt')] = 2
-course_data.loc[96, ('V2', 'Note')] = 'BE'
-
-###### EVALUATE TOTAL BONUS ###########
-members = ev.evaluate_bonus(members)
+#intermediate_tests = []
+#for zt in range(len(zt_test)):
+#    intermediate_tests.append([])
+#    for sub in range(len(zt_ilias_result[zt])):
+#        print('started evaluating intermediate test', zt_test[zt])
+#        intermediate_tests[zt].append(ev.Test(members, marker, zt_test[zt],
+#                                          zt_ilias_result[zt][sub], ff=zt_pool_ff[zt][sub], sc=zt_pool_sc[zt][sub]))
+#        print("process ILIAS data...")
+#        intermediate_tests[zt][sub].process_ilias()
+#        print("process task pools and evaluate...")
+#        intermediate_tests[zt][sub].process_pools()
+#    
+#print("evaluate zt bonus...")
+#[members, course_data]= ev.evaluate_intermediate_tests(members, 
+#                                                       zt_tests=intermediate_tests, 
+#                                                       d_course=course_data,  
+#                                                       scheme=zt_scheme)
+############ LOOP of evaluating all considered Praktikum experiments ############
+#praktikum = []
+#for pra in range(len(pra_experiment)):
+#    praktikum.append([])
+#    for sub in range(len(pra_ilias_result[pra])):
+#        print('started evaluating Praktikum test', pra_ilias_result[pra][sub][21:])
+#        praktikum[pra].append(ev.Test(members, marker, pra_experiment[pra],
+#                                 pra_ilias_result[pra][sub]))
+#        print("process ILIAS data...")
+#        praktikum[pra][sub].process_ilias()
+#    
+#print("evaluate pra bonus...")
+#[members, course_data]= ev.evaluate_praktika(members, pra_prev=old_praktika, 
+#                                             pra_tests=praktikum, 
+#                                             d_course=course_data)
+## Exception for Zeinab Mohammad: "doch im Testdurchlauf 2 bestanden, erfolgloser Testdurchlauf 3 wurde gewertet
+#course_data.loc[96, ('V2', 'Ges_Pkt')] = 2
+#course_data.loc[96, ('V2', 'Note')] = 'BE'
 #
-########### LOOP of evaluating all considered exam cohorts ############
+####### EVALUATE TOTAL BONUS ###########
+#members = ev.evaluate_bonus(members)
+
+########## LOOP of evaluating all considered exam cohorts ############
 exam = []
 for c in range(len(exam_cohort)):
     print('started evaluating exam,', exam_cohort[c])
@@ -173,6 +174,11 @@ for c in range(len(exam_cohort)):
     
 print("evaluate exam...")
 [members, all_entries] = ev.evaluate_exam(members, exam, exam_scheme, max_pts=41) 
+
+a = members['Ges_Pkt'].value_counts().sort_index()
+b = members['ILIAS_Pkt'].value_counts().sort_index()
+ab = pd.merge(a, b, how='outer', on=a.index)
+ab[['ILIAS_Pkt','Ges_Pkt']].plot.bar()
 #print ('export results as excel...')
 #drop_columns = ['Name_']
 #members.drop(drop_columns, axis=1).to_excel(Filename_Export, index=False, na_rep='N/A')
