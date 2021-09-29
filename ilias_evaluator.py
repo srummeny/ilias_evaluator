@@ -58,7 +58,8 @@ class Test:
                  name: int or str,
                  ilias_export: str,
                  ff: str=None,
-                 sc: str=None):
+                 sc: str=None,
+                 daIr: bool=False):
         """
         Parameters
         -----------
@@ -76,6 +77,8 @@ class Test:
             path of Formelfrage task pool, default is None
         sc: str
             path of SingleChoice task pool, default in None
+        daIr: bool
+            document aggregated ILIAS results? - default is False
         """
         self.members = members
         self.marker = marker
@@ -94,6 +97,7 @@ class Test:
         df = pd.ExcelFile(ilias_export)
         # 2. Get aggregated results and data of ILIAS
         self.r_ilias = df.parse(df.sheet_names[0])
+        self.doc_aggr_ILIAS_results = daIr
         # drop all empty rows of ILIAS_results until first name appears 
         while not self.r_ilias.loc[self.r_ilias.index[0]].any():
             self.r_ilias = self.r_ilias.drop(index=self.r_ilias.index[0])
@@ -220,6 +224,8 @@ class Test:
             try:  # try to find row of Name in r_ilias (identical)
                 row = self.r_ilias.index.get_loc(name)
             except KeyError:  # try to find row of Name in r_ilias (containing)
+                if name== "Tiendo Nzako, Elito Dauvillier":
+                    name = "Tiendo Nzako, Elito D'auvillier"
                 names = self.r_ilias.index.dropna()
                 name_sel = [name in names[i] for i in range(len(names))]
                 row = self.r_ilias.index.get_loc(names[name_sel].values.item())
@@ -265,6 +271,7 @@ class Test:
             sel_m = self.row_finder['i_mem'] == float(m)
         # 1. Get row in r_ilias of participants valid run
             row_r = self.row_finder['row_valid'][sel_m].values.item()
+            row_i = self.row_finder['row_init'][sel_m].values.item()
             # get ilias benutzername from r_ilias if it is NaN
             if self.members['Benutzername'].isna()[m]:
                 # print(row_r)
@@ -306,6 +313,8 @@ class Test:
                         formula = self.ff['res' + str(n + 1) + '_formula'][sel_ff].astype(str).item()
                         tol = self.ff['res' + str(n + 1) + '_tol'][sel_ff].item()
                         prec = self.ff['res' + str(n + 1) + '_prec'][sel_ff].item()
+                        if not np.isnan(prec):
+                            prec = int(prec)
                         var = self.ent[(a_t, 'Var')][m]
                         self.ent[(a_t, 'Formula')][m].append(formula)
                         self.ent[(a_t, 'Tol')][m].append(tol)
@@ -322,13 +331,19 @@ class Test:
                             else:
                                 input_res.append(r_ref)
                                 self.ent[(a_t, 'R_ref')][m].append(r_ref)
-                                r_min = round(min(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100)), prec)
-                                r_max = round(max(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100)), prec)
+                                # find r_min/r_max according to tol
+                                r_min = min(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100))
+                                r_max = max(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100))
+                                # set r_min/r_max to minimal/maximal value considering prec
+                                r_min = min(floor(r_min * 10 ** prec) / 10 ** prec, r_min)
+                                r_max = max(round(r_max, prec), r_max)
                                 r_entry = self.ent[(a_t, 'R')][m][n]
                                 # if the entered result = str (e.g. when fractions are entered)
                                 if type(r_entry) == str:
                                     r_entry = eval(r_entry)
-                                if (r_entry >= r_min) and (r_entry <= r_max):  # check correct result
+                                # update r_entry considering prec
+                                r_ent = floor(r_entry * 10 ** prec) / 10 ** prec
+                                if (r_ent >= r_min) and (r_ent <= r_max):  # check correct result
                                     pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
                         else:  # no result or vars available
                             continue
@@ -433,7 +448,8 @@ class Test:
                               self.ent[(a_t, 'Title')][m],
                               "doesn't exist in task pool or ILIAS_results! ###")
             # take the aggregated ILIAS results
-            self.members.loc[m, 'ILIAS_Pkt'] = self.r_ilias.loc[self.r_ilias.index[row_r], 'Testergebnis in Punkten']
+            if self.doc_aggr_ILIAS_results:
+                self.members.loc[m, 'ILIAS_Pkt'] = self.r_ilias.loc[self.r_ilias.index[row_i], 'Testergebnis in Punkten']
 
 
 def eval_ilias(formula_ilias: str,
