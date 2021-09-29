@@ -20,10 +20,12 @@ psso_identifier = 'prf'
 result_identifier = '_results'
 ff_pool_identifier = 'Formelfrage'
 sc_pool_identifier = 'SingleChoice'
-export_prefix = 'ETG_SS21_bonus_'
-Filename_Export = export_prefix+'exp_Ergebnisse.xlsx'
+export_prefix = 'ETG_SS21_'
+Filename_Export_detailed = export_prefix+'exp_Ergebnisse_det.xlsx'
 Filename_Export_public = export_prefix+'exp_Ergebnisse_pub.xlsx'
 Filename_Export_PSSO = export_prefix+'exp_Ergebnissse_psso.xlsx'
+Filename_Export_review_detailed = export_prefix+'exp_results_review_det.xlsx'
+Filename_Export_review_public = export_prefix+'exp_results_review.xlsx'
 IRT_Frame_Name = export_prefix+'irt_frame.xlsx'
 name_marker = 'Ergebnisse von Testdurchlauf '   # 'Ergebnisse von Testdurchlauf 1 für '
 run_marker = 'dummy_text'   # run marker currently not used
@@ -90,6 +92,7 @@ members['E-Mail'] = np.nan
 members['Bonus_ZT'] = np.nan
 members['Bonus_Pra'] = np.nan
 members['Bonus_Pkt'] = np.nan
+members['Kohorte'] = np.nan
 members['Exam_Pkt'] = np.nan
 members['Ges_Pkt'] = np.nan
 members['ILIAS_Pkt'] = np.nan
@@ -106,6 +109,8 @@ for i in range(len(members)):
         continue
     members.loc[i,'Benutzername'] = ilias_mem['Benutzername'][mtknr_sel].values.item()
     members.loc[i,'E-Mail'] = ilias_mem['E-Mail'][mtknr_sel].values.item()
+## remove ' from Names to get ILIAS equivalent names
+members['Name_'] = members['Name_'].str.replace("'", "")
 print('PSSO member import OK')
 
 i_lev1 = []
@@ -120,53 +125,53 @@ for n in pra_experiment:
 c_tests = pd.MultiIndex.from_arrays([i_lev1, i_lev2], names = ['test', 'parameter'])
 course_data = pd.DataFrame(index=members.index, columns=c_tests)
 
-### disable here
-########## LOOP of evaluating all considered intermediate tests ############
-#intermediate_tests = []
-#for zt in range(len(zt_test)):
-#    intermediate_tests.append([])
-#    for sub in range(len(zt_ilias_result[zt])):
-#        print('started evaluating intermediate test', zt_test[zt])
-#        intermediate_tests[zt].append(ev.Test(members, marker, zt_test[zt],
-#                                          zt_ilias_result[zt][sub], ff=zt_pool_ff[zt][sub], sc=zt_pool_sc[zt][sub]))
-#        print("process ILIAS data...")
-#        intermediate_tests[zt][sub].process_ilias()
-#        print("process task pools and evaluate...")
-#        intermediate_tests[zt][sub].process_pools()
-#    
-#print("evaluate zt bonus...")
-#[members, course_data]= ev.evaluate_intermediate_tests(members, 
-#                                                       zt_tests=intermediate_tests, 
-#                                                       d_course=course_data,  
-#                                                       scheme=zt_scheme)
-############ LOOP of evaluating all considered Praktikum experiments ############
-#praktikum = []
-#for pra in range(len(pra_experiment)):
-#    praktikum.append([])
-#    for sub in range(len(pra_ilias_result[pra])):
-#        print('started evaluating Praktikum test', pra_ilias_result[pra][sub][21:])
-#        praktikum[pra].append(ev.Test(members, marker, pra_experiment[pra],
-#                                 pra_ilias_result[pra][sub]))
-#        print("process ILIAS data...")
-#        praktikum[pra][sub].process_ilias()
-#    
-#print("evaluate pra bonus...")
-#[members, course_data]= ev.evaluate_praktika(members, pra_prev=old_praktika, 
-#                                             pra_tests=praktikum, 
-#                                             d_course=course_data)
-## Exception for Zeinab Mohammad: "doch im Testdurchlauf 2 bestanden, erfolgloser Testdurchlauf 3 wurde gewertet
-#course_data.loc[96, ('V2', 'Ges_Pkt')] = 2
-#course_data.loc[96, ('V2', 'Note')] = 'BE'
-#
-####### EVALUATE TOTAL BONUS ###########
-#members = ev.evaluate_bonus(members)
+## disable here
+######### LOOP of evaluating all considered intermediate tests ############
+intermediate_tests = []
+for zt in range(len(zt_test)):
+    intermediate_tests.append([])
+    for sub in range(len(zt_ilias_result[zt])):
+        print('started evaluating intermediate test', zt_test[zt])
+        intermediate_tests[zt].append(ev.Test(members, marker, zt_test[zt],
+                                          zt_ilias_result[zt][sub], ff=zt_pool_ff[zt][sub], sc=zt_pool_sc[zt][sub]))
+        print("process ILIAS data...")
+        intermediate_tests[zt][sub].process_ilias()
+        print("process task pools and evaluate...")
+        intermediate_tests[zt][sub].process_pools()
+    
+print("evaluate zt bonus...")
+[members, course_data]= ev.evaluate_intermediate_tests(members, 
+                                                       zt_tests=intermediate_tests, 
+                                                       d_course=course_data,  
+                                                       scheme=zt_scheme)
+########### LOOP of evaluating all considered Praktikum experiments ############
+praktikum = []
+for pra in range(len(pra_experiment)):
+    praktikum.append([])
+    for sub in range(len(pra_ilias_result[pra])):
+        print('started evaluating Praktikum test', pra_ilias_result[pra][sub][21:])
+        praktikum[pra].append(ev.Test(members, marker, pra_experiment[pra],
+                                 pra_ilias_result[pra][sub]))
+        print("process ILIAS data...")
+        praktikum[pra][sub].process_ilias()
+    
+print("evaluate pra bonus...")
+[members, course_data]= ev.evaluate_praktika(members, pra_prev=old_praktika, 
+                                             pra_tests=praktikum, 
+                                             d_course=course_data)
+# Exception for Zeinab Mohammad: "doch im Testdurchlauf 2 bestanden, erfolgloser Testdurchlauf 3 wurde gewertet
+course_data.loc[96, ('V2', 'Ges_Pkt')] = 2
+course_data.loc[96, ('V2', 'Note')] = 'BE'
+
+###### EVALUATE TOTAL BONUS ###########
+members = ev.evaluate_bonus(members)
 
 ########## LOOP of evaluating all considered exam cohorts ############
 exam = []
 for c in range(len(exam_cohort)):
     print('started evaluating exam,', exam_cohort[c])
     exam.append(ev.Test(members, marker, exam_cohort[c],
-                        exam_ilias_result[c][0], ff=exam_pool_ff[c][0], sc=exam_pool_sc[c][0]))
+                        exam_ilias_result[c][0], ff=exam_pool_ff[c][0], sc=exam_pool_sc[c][0], daIr=True))
     print("process ILIAS data...")
     exam[c].process_ilias()
     print("process task pools and evaluate...")
@@ -174,27 +179,104 @@ for c in range(len(exam_cohort)):
     
 print("evaluate exam...")
 [members, all_entries] = ev.evaluate_exam(members, exam, exam_scheme, max_pts=41) 
+members['bewertung']=members['Note'].fillna('PNE')
 
-a = members['Ges_Pkt'].value_counts().sort_index()
-b = members['ILIAS_Pkt'].value_counts().sort_index()
-ab = pd.merge(a, b, how='outer', on=a.index)
-ab[['ILIAS_Pkt','Ges_Pkt']].plot.bar()
-#print ('export results as excel...')
-#drop_columns = ['Name_']
-#members.drop(drop_columns, axis=1).to_excel(Filename_Export, index=False, na_rep='N/A')
-#members['n_answers'] = np.nan
-#for p in range(len(members['Note'].dropna().index)):
-#    members.loc[p, 'n_answers'] = sum(exam[0].entries.loc[3, pd.IndexSlice[:,'R']].str.len()>0)
-# members['Note'].hist()
-# members['n_answers'].dropna().value_counts()
-# members['n_answers'].hist()
-print ('### done! ###')
-                 
-#course_export = course_data
-#course_export.columns = course_export.columns.map('_'.join)
-#members = pd.concat([members[members.columns[:-3]],course_export, 
-#                     members[members.columns[-3:]]], axis=1)
+#### Check number of Taxonomies in Exam #####
+tax = []
+for i in range(42):
+    tax.append('%02d' % i)
+tax[0] = 'Bitte ignorieren!'
+tax[-1] = 'SC'
+taxonomies = pd.DataFrame(index=members.index, columns=tax)
+n_tax = pd.Series(index=range(11), dtype=object).fillna(0)
+n_taxs = pd.DataFrame(index=range(11))
+run_max = pd.Series(index=members.index, dtype=object)
+for m in members['Note'].dropna().index.values:
+    run = 0
+    runs = []
+    for i in range(len(tax)):
+        if tax[i]=='SC': 
+            taxonomies.loc[m, tax[i]] = len(tax)-taxonomies.loc[m].sum()
+        else:
+            taxonomies.loc[m, tax[i]] = sum(all_entries.loc[m,pd.IndexSlice[:,'Title']].str.startswith(str(tax[i])))
+        if taxonomies.loc[m, tax[i]]==0:
+            run += 1
+        else:
+            if run==0:
+                continue
+            else:
+                runs.append(run)
+                run = 0
+    n_taxs[m] = n_tax.add(taxonomies.loc[m].value_counts().sort_index(), fill_value=0)
+    run_max[m] = max(runs)
+    # plt.plot(taxonomies.loc[m].value_counts().sort_index())
+# v_max, n_0, n_1, n_2, n_3, n_4
+
+######### Export for PSSO ############
+exp_psso = members[members.columns[0:13]].rename(columns={'Matrikelnummer':'mtknr',
+                                                          'Name':'sortname',
+                                                          'Nachname':'nachname',
+                                                          'Vorname':'vorname'})
+exp_psso.to_excel(Filename_Export_PSSO, index=False)
+
+######## Export for lecturer (detailed, not anonymous) ###########
+cols_detailed = [0,13,14,15,10,7,16,17,18,19,20,22,21,4]
+exp_detailed = members[members.columns[cols_detailed]].rename(columns={'Name_':'Name',
+                                                                       'stg':'Studiengang',
+                                                                       'pversuch':'Prüfungsversuch',
+                                                                       'Bonus_Pkt':'Bonus_Ges',
+                                                                       'Kohorte':'Exam_Kohorte',
+                                                                       'ILIAS_Pkt':'Exam_ILIAS_Pkt',
+                                                                       'bewertung':'Bewertung'})
+exp_detailed = exp_detailed.sort_values(by=['Matrikelnummer'])    
+exp_detailed.to_excel(Filename_Export_detailed, index=False)
+
+######## Export for participants (short, anonymous) ############
+cols_public = [0,23]
+exp_public = members[members.columns[cols_public]].rename(columns={'bewertung':'Bewertung'})
+exp_public = exp_public.sort_values(by=['Matrikelnummer'])
+exp_public = exp_public[~exp_public['Note'].isnull()]
+exp_public.to_excel(Filename_Export_public, index=False)
+
+######## Export for Exam review (detailed and short) ############
+# TODO: complete export for Exam review
+exam_export = all_entries.copy()
+exam_export.columns = exam_export.columns.map('_'.join)
+exam_export = exam_export[~exam_export['A1_Title'].isnull()]
+idx = exam_export.index
+review = pd.concat([members.loc[idx,['Matrikelnummer','Name_']], exam_export, members.loc[idx,['Bonus_Pkt','Ges_Pkt','Note']]],axis=1)
+for i in range(42):
+    review = review.drop(columns=['A'+str(i+1)+'_ID',
+                                  'A'+str(i+1)+'_Type', 
+                                  'A'+str(i+1)+'_Pkt_ILIAS'])
+review = review.rename(columns={'Name_':'Name','Bonus_Pkt':'Bonuspunkte', 'Ges_Pkt':'Gesamtpunkte'})
+exp_review_detailed = review.copy()
+exp_review_detailed.index = exp_review_detailed['Matrikelnummer']
+exp_review_detailed = exp_review_detailed.sort_values(by=['Matrikelnummer'])
+exp_review_detailed = exp_review_detailed.transpose()
+exp_review_detailed.to_excel(Filename_Export_review_detailed, header=False)
+
+exp_review_public = review.copy()
+for i in range(42):
+    exp_review_public = exp_review_public.drop(columns=['A'+str(i+1)+'_Title',
+                                                        'A'+str(i+1)+'_Formula',
+                                                        'A'+str(i+1)+'_Var',
+                                                        'A'+str(i+1)+'_Tol'])
+exp_review_public = exp_review_public.drop(columns=['Name'])
+exp_review_public = exp_review_public.sort_values(by=['Matrikelnummer'])
+exp_review_public = exp_review_public.transpose()
+exp_review_public.to_excel(Filename_Export_review_public, header=False)
 #print ('export results as excel...')
 #drop_columns = ['Rolle/Status', 'Nutzungsvereinbarung akzeptiert', 'Name_']
 #members.drop(drop_columns, axis=1).to_excel(Filename_Export, index=False, na_rep='N/A')
 #print ('### done! ###')
+
+print("Excel Export OK")
+
+#### Plot comparison of Exam_Pkt and ILIAS_Pkt #####
+#a = members['Exam_Pkt'].value_counts().sort_index()
+#b = members['ILIAS_Pkt'].value_counts().sort_index()
+#ab = pd.merge(a, b, how='outer', on=a.index)
+#ab[['ILIAS_Pkt','Exam_Pkt']].plot.bar()
+
+print ('### done! ###')
