@@ -4,6 +4,7 @@ Author: Silvan Rummeny
 """
 import ilias_evaluator as ev
 import pandas as pd
+import matplotlib.pyplot as plt
 import numpy as np
 import glob
 
@@ -95,7 +96,7 @@ for i in range(len(members)):
     members.loc[i,'Benutzername'] = ilias_mem['Benutzername'][mtknr_sel].values.item()
     members.loc[i,'E-Mail'] = ilias_mem['E-Mail'][mtknr_sel].values.item()
 ## remove ' from Names to get ILIAS equivalent names
-#members['Name_'] = members['Name_'].str.replace("'", "")
+members['Name_'] = members['Name_'].str.replace("'", "")
 print('PSSO member import OK')
 
 ########## LOOP of evaluating all considered exam cohorts ############
@@ -117,4 +118,35 @@ b = members['ILIAS_Pkt'].value_counts().sort_index()
 ab = pd.merge(a, b, how='outer', on=a.index)
 ab[['ILIAS_Pkt','Ges_Pkt']].plot.bar()
 
+# check number of Taxonomies
+tax = []
+for i in range(42):
+    tax.append('%02d' % i)
+tax[0] = 'Bitte ignorieren!'
+tax[-1] = 'SC'
+taxonomies = pd.DataFrame(index=members.index, columns=tax)
+n_tax = pd.Series(index=range(11), dtype=object).fillna(0)
+n_taxs = pd.DataFrame(index=range(11))
+run_max = pd.Series(index=members.index, dtype=object)
+for m in members['Note'].dropna().index.values:
+    run = 0
+    runs = []
+    for i in range(len(tax)):
+        if tax[i]=='SC': 
+            taxonomies.loc[m, tax[i]] = len(tax)-taxonomies.loc[m].sum()
+        else:
+            taxonomies.loc[m, tax[i]] = sum(all_entries.loc[m,pd.IndexSlice[:,'Title']].str.startswith(str(tax[i])))
+        if taxonomies.loc[m, tax[i]]==0:
+            run += 1
+        else:
+            if run==0:
+                continue
+            else:
+                runs.append(run)
+                run = 0
+    n_taxs[m] = n_tax.add(taxonomies.loc[m].value_counts().sort_index(), fill_value=0)
+    run_max[m] = max(runs)
+    # plt.plot(taxonomies.loc[m].value_counts().sort_index())
+# v_max, n_0, n_1, n_2, n_3, n_4
+        
 print ('### done! ###')
