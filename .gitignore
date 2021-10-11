@@ -20,12 +20,7 @@ parts/
 sdist/
 var/
 wheels/
-ETG_SS21_Exam/
-ETG_SS21_Exam_Probe/
-ETG_Exam_Demonstration/
-ETG_SS21_Members/
-ETG_SS21_Praktikum/
-ETG_SS21_ZT/
+ETG_*/
 ETG_SS21_exp*
 result_analysis/
 pip-wheel-metadata/
