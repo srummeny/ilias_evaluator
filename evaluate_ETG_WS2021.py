@@ -5,6 +5,7 @@ Author: Silvan Rummeny
 import ilias_evaluator as ev
 import pandas as pd
 import numpy as np
+from math import *
 import glob
 
 version = '2.1, 27.07.2021'
@@ -60,7 +61,7 @@ pra_dir = 'ETG_SS21_Praktikum/'
 # Specific constants for Exam
 exam_scheme = pd.Series(data= [0,    44,   49,   53,   58,   62,   67,   71,   76,   80,   84],
                         index=["5,0","4,0","3,7","3,3","3,0","2,7","2,3","2,0","1,7","1,3","1,0"]) 
-exam_cohort = ['Exam']
+exam_cohort = ['1_50', '51_100', '101_150', '151_200', '201_250', '251_300', '301_350', '351_400', '401_423']
 exam_dir = 'ETG_WS2021_Exam/'
 
 # find all import data and pools in directory
@@ -165,7 +166,25 @@ course_data.loc[96, ('V2', 'Ges_Pkt')] = 2
 course_data.loc[96, ('V2', 'Note')] = 'BE'
 
 ###### EVALUATE TOTAL BONUS ###########
-members = ev.evaluate_bonus(members)
+#members = ev.evaluate_bonus(members)
+bonus = pd.read_excel(exam_dir+'20210526_Uebersicht Bonuspunkte.xlsx', sheet_name='Mitglieder', header=1)
+bonus_prev = pd.read_excel(exam_dir+'20210526_Uebersicht Bonuspunkte.xlsx', sheet_name='Liste Bonuspunkte - Praktika', header=0)
+for i in range(len(members)):
+    bo_sel = members['Matrikelnummer'][i] == bonus['Matrikelnummer']
+    bop_sel = members['Matrikelnummer'][i] == bonus_prev['Matrikelnr.']
+    if sum(bop_sel)>1:
+        bop_sel[bop_sel[bop_sel==True].index[:-1]] = False
+    if any(bo_sel):
+        members.loc[i, 'Bonus_ZT'] = floor(bonus[['ZT01','ZT02','ZT03','ZT04','ZT05','ZT06','ZT07','ZT08','ZT09','ZT10','ZT11','ZT12']][bo_sel].sum(axis=1).values.item()/2)
+        members.loc[i, 'Bonus_Pra'] = bonus[['V1','V2','V3']][bo_sel].sum(axis=1).values.item()
+        members.loc[i, 'Bonus_Pkt'] = min(5, members.loc[i, 'Bonus_Pra']+members.loc[i, 'Bonus_ZT'])
+        members.loc[i, 'Ges_Pkt'] += members.loc[i, 'Bonus_Pkt']
+    elif any(bop_sel):
+        members.loc[i, 'Bonus_Pra'] = bonus_prev[['V1','V2','V3']][bop_sel].sum(axis=1).values.item()
+        members.loc[i, 'Bonus_Pkt'] = members.loc[i, 'Bonus_Pra']
+        members.loc[i, 'Ges_Pkt'] += members.loc[i, 'Bonus_Pkt']
+    else:
+        print('Member', i, members['Name_'][i], 'is not on bonus list!')
 
 ########## LOOP of evaluating all considered exam cohorts ############
 exam = []
@@ -221,7 +240,7 @@ exp_psso = members[members.columns[0:13]].rename(columns={'Matrikelnummer':'mtkn
 exp_psso.to_excel(Filename_Export_PSSO, index=False)
 
 ######## Export for lecturer (detailed, not anonymous) ###########
-cols_detailed = [0,13,14,15,10,7,16,17,18,19,20,22,21,4]
+cols_detailed = [0,15,16,17,10,7,18,19,20,21,22,24,23,4]
 exp_detailed = members[members.columns[cols_detailed]].rename(columns={'Name_':'Name',
                                                                        'stg':'Studiengang',
                                                                        'pversuch':'Prüfungsversuch',
@@ -233,7 +252,7 @@ exp_detailed = exp_detailed.sort_values(by=['Matrikelnummer'])
 exp_detailed.to_excel(Filename_Export_detailed, index=False)
 
 ######## Export for participants (short, anonymous) ############
-cols_public = [0,23]
+cols_public = [0,25]
 exp_public = members[members.columns[cols_public]].rename(columns={'bewertung':'Bewertung'})
 exp_public = exp_public.sort_values(by=['Matrikelnummer'])
 exp_public = exp_public[~exp_public['Note'].isnull()]
@@ -246,19 +265,19 @@ exam_export.columns = exam_export.columns.map('_'.join)
 exam_export = exam_export[~exam_export['A1_Title'].isnull()]
 idx = exam_export.index
 review = pd.concat([members.loc[idx,['Matrikelnummer','Name_']], exam_export, members.loc[idx,['Bonus_Pkt','Ges_Pkt','Note']]],axis=1)
-for i in range(42):
+for i in range(41):
     review = review.drop(columns=['A'+str(i+1)+'_ID',
                                   'A'+str(i+1)+'_Type', 
                                   'A'+str(i+1)+'_Pkt_ILIAS'])
 review = review.rename(columns={'Name_':'Name','Bonus_Pkt':'Bonuspunkte', 'Ges_Pkt':'Gesamtpunkte'})
 exp_review_detailed = review.copy()
-exp_review_detailed.index = exp_review_detailed['Matrikelnummer']
+#exp_review_detailed.index = exp_review_detailed['Matrikelnummer']
 exp_review_detailed = exp_review_detailed.sort_values(by=['Matrikelnummer'])
 exp_review_detailed = exp_review_detailed.transpose()
 exp_review_detailed.to_excel(Filename_Export_review_detailed, header=False)
 
 exp_review_public = review.copy()
-for i in range(42):
+for i in range(41):
     exp_review_public = exp_review_public.drop(columns=['A'+str(i+1)+'_Title',
                                                         'A'+str(i+1)+'_Formula',
                                                         'A'+str(i+1)+'_Var',
