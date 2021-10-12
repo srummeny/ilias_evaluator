@@ -103,7 +103,7 @@ class Test:
             self.r_ilias = self.r_ilias.drop(index=self.r_ilias.index[0])
         self.r_ilias = self.r_ilias.set_index('Name')
         # get important test parameters from aggregated ILIAS data
-        self.n_tasks = int(self.r_ilias['Gesamtzahl der Fragen'][0])
+        self.n_tasks = int(self.r_ilias['Gesamtzahl der Fragen'].dropna()[0])
         self.max_pts = self.r_ilias['Maximal erreichbare Punktezahl'][0]
         # 3. Get ILIAS data of every single participant (detailed)
         # save sheet data of each participant 
@@ -284,22 +284,30 @@ class Test:
         # 2. Get task in task pools and/or in r_ilias
                 # is task title in ff-task pool?
                 sel_ff = self.ff['question_title'] == self.ent[(a_t, 'Title')][m]
-                # is task title in sc-task pool?
-                sel_sc = self.sc['question_title'] == self.ent[(a_t, 'Title')][m]
+                # proof if task title is unique
+                if len(self.ff[sel_ff]) > 1:
+                    print('### Task title "', self.ent[(a_t, 'Title')][m],
+                              '" is not unique! ###')
+                # set default sel_sc to a list of False
+                sel_sc = [False, False]
+                if self.sc is not None:
+                    # is task title in sc-task pool?
+                    sel_sc = self.sc['question_title'] == self.ent[(a_t, 'Title')][m]
+                    sel_sc12 = None
+                    # proof if task title is unique
+                    if len(self.sc[sel_sc]) > 1:
+                        print('### Task title "', self.ent[(a_t, 'Title')][m],
+                              '" is not unique! ###')
+                        # added special case for exam of 13.09.2021
+                        if len(self.sc[sel_sc])==2:
+                            sel_sc12 = [sel_sc.copy(), sel_sc.copy()]
+                            sel_sc12[0][8] = False
+                            sel_sc12[1][7] = False
+                        else:
+                            continue
                 # is the task title in represented in r_ilias?
                 sel_c = self.r_ilias.columns == self.ent[(a_t, 'Title')][m]
-                # proof if task title is unique
-                sel_sc12 = None
-                if len(self.ff[sel_ff]) > 1 or len(self.sc[sel_sc]) > 1:
-                    print('### Task title "', self.ent[(a_t, 'Title')][m],
-                          '" is not unique! ###')
-                    # added special case for exam of 13.09.2021
-                    if len(self.sc[sel_sc])==2:
-                        sel_sc12 = [sel_sc.copy(), sel_sc.copy()]
-                        sel_sc12[0][8] = False
-                        sel_sc12[1][7] = False
-                    else:
-                        continue
+                
             # if task type is Formelfrage
                 if any(sel_ff):
                     sel_formula = self.ff.loc[sel_ff, self.ff.columns.str.contains('formula')]
