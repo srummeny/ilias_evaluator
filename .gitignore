@@ -21,7 +21,7 @@ sdist/
 var/
 wheels/
 ETG_*/
-ETG_SS21_exp*
+ETG_*
 result_analysis/
 pip-wheel-metadata/
 share/python-wheels/
