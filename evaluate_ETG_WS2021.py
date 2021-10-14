@@ -23,12 +23,12 @@ result_identifier = '_results'
 ff_pool_identifier = 'Formelfrage'
 sc_pool_identifier = 'SingleChoice'
 export_prefix = 'ETG_WS2021_'
-Filename_Export_detailed = export_prefix+'exp_Ergebnisse_det.xlsx'
-Filename_Export_public = export_prefix+'exp_Ergebnisse_pub.xlsx'
-Filename_Export_PSSO = export_prefix+'exp_Ergebnissse_psso.xlsx'
-Filename_Export_review_detailed = export_prefix+'exp_results_review_det.xlsx'
-Filename_Export_review_public = export_prefix+'exp_results_review.xlsx'
-IRT_Frame_Name = export_prefix+'irt_frame.xlsx'
+Filename_Export_detailed = export_prefix+'exp_Ergebnisse_det2.xlsx'
+Filename_Export_public = export_prefix+'exp_Ergebnisse_pub2.xlsx'
+Filename_Export_PSSO = export_prefix+'exp_Ergebnissse_psso2.xlsx'
+Filename_Export_review_detailed = export_prefix+'exp_results_review_det2.xlsx'
+Filename_Export_review_public = export_prefix+'exp_results_review2.xlsx'
+IRT_Frame_Name = export_prefix+'irt_frame2.xlsx'
 name_marker = 'Ergebnisse von Testdurchlauf '   # 'Ergebnisse von Testdurchlauf 1 für '
 run_marker = 'dummy_text'   # run marker currently not used
 tasks = ['Formelfrage', 'Single Choice', 'Lückentextfrage', 'Hotspot/Imagemap', 'Freitext eingeben']
@@ -175,7 +175,7 @@ for i in range(len(members)):
     if sum(bop_sel)>1:
         bop_sel[bop_sel[bop_sel==True].index[:-1]] = False
     if any(bo_sel):
-        members.loc[i, 'Bonus_ZT'] = floor(bonus[['ZT01','ZT02','ZT03','ZT04','ZT05','ZT06','ZT07','ZT08','ZT09','ZT10','ZT11','ZT12']][bo_sel].sum(axis=1).values.item()/2)
+        members.loc[i, 'Bonus_ZT'] = floor(bonus[['ZT01','ZT02','ZT03','ZT04','ZT05','ZT06','ZT07','ZT08','ZT09','ZT10','ZT11','ZT12']][bo_sel].sum(axis=1).values.item())
         members.loc[i, 'Bonus_Pra'] = bonus[['V1','V2','V3']][bo_sel].sum(axis=1).values.item()
         members.loc[i, 'Bonus_Pkt'] = min(5, members.loc[i, 'Bonus_Pra']+members.loc[i, 'Bonus_ZT'])
         members.loc[i, 'Ges_Pkt'] += members.loc[i, 'Bonus_Pkt']
