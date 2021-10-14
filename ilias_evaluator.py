@@ -283,7 +283,7 @@ class Test:
                 input_res = []
         # 2. Get task in task pools and/or in r_ilias
                 # is task title in ff-task pool?
-                sel_ff = self.ff['question_title'] == self.ent[(a_t, 'Title')][m]]
+                sel_ff = self.ff['question_title'] == self.ent[(a_t, 'Title')][m]
                 # proof if task title is unique
                 if len(self.ff[sel_ff]) > 1:
                     print('### Task title "', self.ent[(a_t, 'Title')][m],
