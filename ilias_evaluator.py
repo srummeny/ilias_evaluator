@@ -351,8 +351,15 @@ class Test:
                                     r_entry = eval(r_entry)
                                 # update r_entry considering prec
                                 r_ent = floor(r_entry * 10 ** prec) / 10 ** prec
-                                if (r_ent >= r_min) and (r_ent <= r_max):  # check correct result
-                                    pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
+                                # exception for 30.9.397-399
+                                if self.ent[(a_t, 'Title')][m] in ['30.9.397', '30.9.398', '30.9.399']:
+                                    #accept positive and negative answer
+                                    if ((r_ent >= r_min) and (r_ent <= r_max)) or ((-r_ent >= r_min) and (-r_ent <= r_max)):  # check correct result
+                                        pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
+                                        print(self.members['Matrikelnummer'][m], a_t)
+                                else:
+                                    if (r_ent >= r_min) and (r_ent <= r_max):  # check correct result
+                                        pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
                         else:  # no result or vars available
                             continue
                     self.ent.loc[m, (a_t, 'Pkt')] = pkt
@@ -525,8 +532,9 @@ def import_psso_members(psso_import: list):
     """
     # init psso_members by importing first psso_import file
     psso_members = pd.read_excel(psso_import[0], skiprows=3)
-    # drop last row (summation row)
-    psso_members = psso_members.drop(index=psso_members.index[-1])
+    # drop last row if it contains footer
+    if psso_members.loc[psso_members.index[-1],'mtknr'] == 'endHISsheet':
+        psso_members = psso_members.drop(index=psso_members.index[-1])
     # import all left psso_import files
     if len(psso_import) > 1:
         for i in range(len(psso_import) - 1):
@@ -655,8 +663,8 @@ def evaluate_praktika(members: pd.DataFrame,
         - write new praktikum in old praktikum
     """
 # 1.a Evaluate Praktika tests
-    pra_filter = [col for col in d_course.columns.get_level_values(0) if col.startswith('V')]
     if pra_tests is not None:
+        pra_filter = [col for col in d_course.columns.get_level_values(0) if col.startswith('V')]
         # iterate every experiment 
         for exp in range(len(pra_tests)):
             # iterate every test of one experiment
@@ -687,18 +695,29 @@ def evaluate_praktika(members: pd.DataFrame,
                             d_course.loc[p, [(pra_i, 'Note')]] = 'BE'
                         else:
                             d_course.loc[p, [(pra_i, 'Note')]] = 'NB'
-                test_res = d_course.loc[p, pd.IndexSlice[pra_filter, 'Note']].value_counts()
-                if (test_res.index == 'BE').any():
-                # Get bonus by bonus tests by considering tests_p_bonus
-                    members.loc[p, 'Bonus_Pra'] = floor(test_res['BE'] / tests_p_bonus)
-    else:
-# 1.b Or get bonus by old Praktikum
-        # iterate every member
-        for p in members.index.to_list():
-            if any(pra_prev['Matrikelnr.'] == members['Matrikelnummer'][p]):
-                # match values by Matrikelnummer
-                sel = pra_prev['Matrikelnr.'] == members['Matrikelnummer'][p]
-                members.loc[p, 'Bonus_Pra'] = max(pra_prev['Summe'][sel])
+                    # if experiment is still not passed, check if it is passed in previous semesters  
+    # TODO: include export of updated Praktika bonus list
+# 1.b Get passed Experiments in previous Semesters
+    pra = ['V1','V2','V3'] 
+    # iterate every member
+    for p in members.index.to_list():
+        sel = pra_prev['Matrikelnr.'] == members['Matrikelnummer'][p]
+        if any(sel):
+            # iterate every experiment
+            for i in range(len(pra)):
+                if d_course.loc[p, [(pra[i], 'Note')]].values.item() != 'BE':
+                    if pd.to_numeric(pra_prev[pra[i]][sel], errors='coerce').sum() >= 1:
+                            d_course.loc[p, [(pra[i], 'Note')]] = 'BE'
+                            # print('added previous bonus from', pra[i], 'for', p)
+# 2. Sum up all bonus achieved by Praktika
+        members.loc[p, 'Bonus_Pra'] = 0
+        test_res = d_course.loc[p, pd.IndexSlice[pra_filter, 'Note']].value_counts()
+        if (test_res.index == 'BE').any():
+            #print('#####TEST', test_res['BE'])
+        # Get bonus by bonus tests by considering tests_p_bonus
+            members.loc[p, 'Bonus_Pra'] += floor(test_res['BE'] / tests_p_bonus)
+            #print( 'added bonus from current Praktika for', p)
+            # match values by Matrikelnummer
     return members, d_course
 
 
