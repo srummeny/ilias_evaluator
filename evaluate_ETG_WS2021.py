@@ -22,13 +22,13 @@ psso_identifier = 'psso_alle'
 result_identifier = '_results'
 ff_pool_identifier = 'Formelfrage'
 sc_pool_identifier = 'SingleChoice'
-export_prefix = 'ETG_WS2021_'
-Filename_Export_detailed = export_prefix+'exp_Ergebnisse_det2.xlsx'
-Filename_Export_public = export_prefix+'exp_Ergebnisse_pub2.xlsx'
-Filename_Export_PSSO = export_prefix+'exp_Ergebnissse_psso2.xlsx'
-Filename_Export_review_detailed = export_prefix+'exp_results_review_det2.xlsx'
-Filename_Export_review_public = export_prefix+'exp_results_review2.xlsx'
-IRT_Frame_Name = export_prefix+'irt_frame2.xlsx'
+export_prefix = 'ETG_2021w_'
+Filename_Export_detailed = export_prefix+'exp_Ergebnisse_det.xlsx'
+Filename_Export_public = export_prefix+'exp_Ergebnisse_pub.xlsx'
+Filename_Export_PSSO = export_prefix+'exp_Ergebnissse_psso.xlsx'
+Filename_Export_review_detailed = export_prefix+'exp_results_review_det.xlsx'
+Filename_Export_review_public = export_prefix+'exp_results_review.xlsx'
+IRT_Frame_Name = export_prefix+'irt_frame.xlsx'
 name_marker = 'Ergebnisse von Testdurchlauf '   # 'Ergebnisse von Testdurchlauf 1 für '
 run_marker = 'dummy_text'   # run marker currently not used
 tasks = ['Formelfrage', 'Single Choice', 'Lückentextfrage', 'Hotspot/Imagemap', 'Freitext eingeben']
@@ -61,7 +61,7 @@ pra_dir = 'ETG_SS21_Praktikum/'
 # Specific constants for Exam
 exam_scheme = pd.Series(data= [0,    44,   49,   53,   58,   62,   67,   71,   76,   80,   84],
                         index=["5,0","4,0","3,7","3,3","3,0","2,7","2,3","2,0","1,7","1,3","1,0"]) 
-exam_cohort = ['1_50', '51_100', '101_150', '151_200', '201_250', '251_300', '301_350', '351_400', '401_423']
+exam_cohort = ['1_50', '51_100', '101_150', '151_200', '201_250', '251_300', '301_350', '351_400', '401_423'] 
 exam_dir = 'ETG_WS2021_Exam/'
 
 # find all import data and pools in directory
@@ -172,20 +172,18 @@ bonus_prev = pd.read_excel(exam_dir+'20210526_Uebersicht Bonuspunkte.xlsx', shee
 for i in range(len(members)):
     bo_sel = members['Matrikelnummer'][i] == bonus['Matrikelnummer']
     bop_sel = members['Matrikelnummer'][i] == bonus_prev['Matrikelnr.']
+    members.loc[i, 'Bonus_Pra'] = 0
+    members.loc[i, 'Bonus_ZT'] = 0
     if sum(bop_sel)>1:
         bop_sel[bop_sel[bop_sel==True].index[:-1]] = False
     if any(bo_sel):
         members.loc[i, 'Bonus_ZT'] = floor(bonus[['ZT01','ZT02','ZT03','ZT04','ZT05','ZT06','ZT07','ZT08','ZT09','ZT10','ZT11','ZT12']][bo_sel].sum(axis=1).values.item())
-        members.loc[i, 'Bonus_Pra'] = bonus[['V1','V2','V3']][bo_sel].sum(axis=1).values.item()
-        members.loc[i, 'Bonus_Pkt'] = min(5, members.loc[i, 'Bonus_Pra']+members.loc[i, 'Bonus_ZT'])
-        members.loc[i, 'Ges_Pkt'] += members.loc[i, 'Bonus_Pkt']
-    elif any(bop_sel):
-        members.loc[i, 'Bonus_Pra'] = bonus_prev[['V1','V2','V3']][bop_sel].sum(axis=1).values.item()
-        members.loc[i, 'Bonus_Pkt'] = members.loc[i, 'Bonus_Pra']
-        members.loc[i, 'Ges_Pkt'] += members.loc[i, 'Bonus_Pkt']
-    else:
+        members.loc[i, 'Bonus_Pra'] += bonus[['V1','V2','V3']][bo_sel].sum(axis=1).values.item()
+    if any(bop_sel):
+        members.loc[i, 'Bonus_Pra'] += bonus_prev[['V1','V2','V3']][bop_sel].sum(axis=1).values.item()
+    elif not any(bo_sel) or any(bop_sel):
         print('Member', i, members['Name_'][i], 'is not on bonus list!')
-
+    members.loc[i, 'Bonus_Pkt'] = min(5, members.loc[i, 'Bonus_Pra']+members.loc[i, 'Bonus_ZT'])
 ########## LOOP of evaluating all considered exam cohorts ############
 exam = []
 for c in range(len(exam_cohort)):
@@ -198,7 +196,7 @@ for c in range(len(exam_cohort)):
     exam[c].process_pools()
     
 print("evaluate exam...")
-[members, all_entries] = ev.evaluate_exam(members, exam, exam_scheme, max_pts=41) 
+[members, all_entries] = ev.evaluate_exam(members, exam, exam_scheme, max_pts=45) 
 members['bewertung']=members['Note'].fillna('PNE')
 
 #### Check number of Taxonomies in Exam #####
