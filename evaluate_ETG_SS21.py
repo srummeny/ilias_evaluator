@@ -20,7 +20,7 @@ psso_identifier = 'prf'
 result_identifier = '_results'
 ff_pool_identifier = 'Formelfrage'
 sc_pool_identifier = 'SingleChoice'
-export_prefix = 'ETG_SS21_'
+export_prefix = '2021s_ETG'
 Filename_Export_detailed = export_prefix+'exp_Ergebnisse_det.xlsx'
 Filename_Export_public = export_prefix+'exp_Ergebnisse_pub.xlsx'
 Filename_Export_PSSO = export_prefix+'exp_Ergebnissse_psso.xlsx'
@@ -143,7 +143,8 @@ print("evaluate zt bonus...")
 [members, course_data]= ev.evaluate_intermediate_tests(members, 
                                                        zt_tests=intermediate_tests, 
                                                        d_course=course_data,  
-                                                       scheme=zt_scheme)
+                                                       scheme=zt_scheme,
+                                                       tests_p_bonus=2)
 ########### LOOP of evaluating all considered Praktikum experiments ############
 praktikum = []
 for pra in range(len(pra_experiment)):
@@ -251,10 +252,9 @@ for i in range(42):
                                   'A'+str(i+1)+'_Pkt_ILIAS'])
 review = review.rename(columns={'Name_':'Name','Bonus_Pkt':'Bonuspunkte', 'Ges_Pkt':'Gesamtpunkte'})
 exp_review_detailed = review.copy()
-exp_review_detailed.index = exp_review_detailed['Matrikelnummer']
 exp_review_detailed = exp_review_detailed.sort_values(by=['Matrikelnummer'])
 exp_review_detailed = exp_review_detailed.transpose()
-exp_review_detailed.to_excel(Filename_Export_review_detailed, header=False)
+exp_review_detailed.to_excel(Filename_Export_review_detailed, header=False, index=False)
 
 exp_review_public = review.copy()
 for i in range(42):
@@ -266,6 +266,7 @@ exp_review_public = exp_review_public.drop(columns=['Name'])
 exp_review_public = exp_review_public.sort_values(by=['Matrikelnummer'])
 exp_review_public = exp_review_public.transpose()
 exp_review_public.to_excel(Filename_Export_review_public, header=False)
+
 #print ('export results as excel...')
 #drop_columns = ['Rolle/Status', 'Nutzungsvereinbarung akzeptiert', 'Name_']
 #members.drop(drop_columns, axis=1).to_excel(Filename_Export, index=False, na_rep='N/A')
@@ -278,5 +279,14 @@ print("Excel Export OK")
 #b = members['ILIAS_Pkt'].value_counts().sort_index()
 #ab = pd.merge(a, b, how='outer', on=a.index)
 #ab[['ILIAS_Pkt','Exam_Pkt']].plot.bar()
+
+#f = pd.read_excel('ETG_SS21_exp_results_review(1).xlsx', sheet_name='Sheet1', index_col=0)
+#f = f.transpose()
+#for p in range(len(f)):
+#    mat = f['Matrikelnummer'][p]
+#    sel = members['Matrikelnummer'] == mat
+#    if float(members['Note'][sel].values.item().replace(',','.')) != float(f['Note'][f.index[p]].replace(',','.')):
+#        print(mat, 'Note ist anders!', f['Note'][p], '-->', members['Note'][sel].values.item())
+#        print('   Bonuspunkte', f['Bonuspunkte'][p], '-->', members['Bonuspunkte'][sel].values.item())
 
 print ('### done! ###')
