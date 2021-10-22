@@ -22,6 +22,7 @@ var/
 wheels/
 ETG_*/
 ETG_*
+202*
 result_analysis/
 pip-wheel-metadata/
 share/python-wheels/
