@@ -70,60 +70,60 @@ psso_members = psso_members_origin.rename(columns={'mtknr':'Matrikelnummer',
                                                    'sortname':'Name', 
                                                    'nachname':'Nachname', 
                                                    'vorname':'Vorname'})
-## add a space behind the komma of the name
-#for i in range(len(psso_members)):
-#    name = psso_members.loc[i, 'Name']
-#    komma = name.find(',')+1
-#    psso_members.loc[i, 'Name'] = name[:name.find(',')+1] + ' ' + name[name.find(',')+1:]
-#    psso_members.loc[i, 'Name_'] = name[:name.find(',')+1] + ' ' + name[name.find(',')+1:]
-#print('PSSO member import OK')
-## read bonus list from Praktika 
-#praktika = pd.read_excel('ETG_SS21_ZT/20210614_ETG_SS21_Bonuspunkte.xlsx', 
-#                            sheet_name='Liste Bonuspunkte - Praktika')
-#print('Praktika import OK')
-## read ILIAS member list incl. bonus
-#members = pd.read_excel('ETG_SS21_ZT/ETG_SS21_ZT_exp_Ergebnisse.xlsx', 
-#                      sheet_name='Sheet1')
-#members = members.rename(columns={'Bonuspunkte':'Bonus_Pkt'})
-#members['Name_'] = members['Name'].str.replace("'","")
-#members['Exam_Pkt'] = np.nan
-#members['Ges_Pkt'] = np.nan
-#members['Note'] = np.nan
-## compare ILIAS members and psso_members
-## ilias course members which are missing in psso --> ignore in evaluation
-#members = members.loc[members['Matrikelnummer'].dropna().index]
-#sel_ilias = [members['Matrikelnummer'].astype(int).values[i] not in psso_members['Matrikelnummer'].astype(int).values for i in range(len(members))]
-## psso members which are missing in ilias course --> add to evaluation
-#sel_psso = [psso_members['Matrikelnummer'].astype(int).values[i] not in members['Matrikelnummer'].astype(int).values for i in range(len(psso_members))]
-## get praktikum bonus of members missing in ilias course
-#missing_members = psso_members.loc[sel_psso].copy()
-#missing_members.loc[:,'Bonus_ZT'] = 0.0
-#missing_members.loc[:,'Bonus_Pra'] = 0.0
-#missing_members.loc[:,'Bonus_Pkt'] = 0.0
-#[missing_members, course_data]= ev.evaluate_bonus(missing_members, praktika)
-#members = pd.concat([members, missing_members], ignore_index=True)
-#print('Bonus import of members OK')
-########## LOOP of evaluating several cohorts (c) of the exam ############
-#exam = []
-#for c in range(len(considered_tests)):
-#    print('started evaluating exam,', considered_tests[c])
-#    exam.append(ev.Test(members, marker, considered_tests[c],
-#                                      result_import[c], import_pool_FF[c], 
-#                                      import_pool_SC[c]))
-#    print("process ILIAS data...")
-#    exam[c].process_d_ilias()
-#    print("process task pools and evaluate...")
-#    exam[c].process_pools()
-#    
-#print("evaluate exam...")
-#[members, all_entries] = ev.evaluate_exam(members, exam, scheme, max_pts=41) 
-#print ('export results as excel...')
-#drop_columns = ['Name_']
-#members.drop(drop_columns, axis=1).to_excel(Filename_Export, index=False, na_rep='N/A')
-#members['n_answers'] = np.nan
-#for p in range(len(members['Note'].dropna().index)):
-#    members.loc[p, 'n_answers'] = sum(exam[0].entries.loc[3, pd.IndexSlice[:,'R']].str.len()>0)
-## members['Note'].hist()
-## members['n_answers'].dropna().value_counts()
-## members['n_answers'].hist()
-#print ('### done! ###')
+# add a space behind the komma of the name
+for i in range(len(psso_members)):
+    name = psso_members.loc[i, 'Name']
+    komma = name.find(',')+1
+    psso_members.loc[i, 'Name'] = name[:name.find(',')+1] + ' ' + name[name.find(',')+1:]
+    psso_members.loc[i, 'Name_'] = name[:name.find(',')+1] + ' ' + name[name.find(',')+1:]
+print('PSSO member import OK')
+# read bonus list from Praktika 
+praktika = pd.read_excel('ETG_SS21_ZT/20210614_ETG_SS21_Bonuspunkte.xlsx', 
+                            sheet_name='Liste Bonuspunkte - Praktika')
+print('Praktika import OK')
+# read ILIAS member list incl. bonus
+members = pd.read_excel('ETG_SS21_ZT/ETG_SS21_ZT_exp_Ergebnisse.xlsx', 
+                      sheet_name='Sheet1')
+members = members.rename(columns={'Bonuspunkte':'Bonus_Pkt'})
+members['Name_'] = members['Name'].str.replace("'","")
+members['Exam_Pkt'] = np.nan
+members['Ges_Pkt'] = np.nan
+members['Note'] = np.nan
+# compare ILIAS members and psso_members
+# ilias course members which are missing in psso --> ignore in evaluation
+members = members.loc[members['Matrikelnummer'].dropna().index]
+sel_ilias = [members['Matrikelnummer'].astype(int).values[i] not in psso_members['Matrikelnummer'].astype(int).values for i in range(len(members))]
+# psso members which are missing in ilias course --> add to evaluation
+sel_psso = [psso_members['Matrikelnummer'].astype(int).values[i] not in members['Matrikelnummer'].astype(int).values for i in range(len(psso_members))]
+# get praktikum bonus of members missing in ilias course
+missing_members = psso_members.loc[sel_psso].copy()
+missing_members.loc[:,'Bonus_ZT'] = 0.0
+missing_members.loc[:,'Bonus_Pra'] = 0.0
+missing_members.loc[:,'Bonus_Pkt'] = 0.0
+[missing_members, course_data]= ev.evaluate_bonus(missing_members, praktika)
+members = pd.concat([members, missing_members], ignore_index=True)
+print('Bonus import of members OK')
+######### LOOP of evaluating several cohorts (c) of the exam ############
+exam = []
+for c in range(len(considered_tests)):
+    print('started evaluating exam,', considered_tests[c])
+    exam.append(ev.Test(members, marker, considered_tests[c],
+                                      result_import[c], import_pool_FF[c], 
+                                      import_pool_SC[c]))
+    print("process ILIAS data...")
+    exam[c].process_d_ilias()
+    print("process task pools and evaluate...")
+    exam[c].process_pools()
+    
+print("evaluate exam...")
+[members, all_entries] = ev.evaluate_exam(members, exam, scheme, max_pts=41) 
+print ('export results as excel...')
+drop_columns = ['Name_']
+members.drop(drop_columns, axis=1).to_excel(Filename_Export, index=False, na_rep='N/A')
+members['n_answers'] = np.nan
+for p in range(len(members['Note'].dropna().index)):
+    members.loc[p, 'n_answers'] = sum(exam[0].entries.loc[3, pd.IndexSlice[:,'R']].str.len()>0)
+# members['Note'].hist()
+# members['n_answers'].dropna().value_counts()
+# members['n_answers'].hist()
+print ('### done! ###')
