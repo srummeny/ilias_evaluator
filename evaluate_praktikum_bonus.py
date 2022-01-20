@@ -6,20 +6,111 @@ Created on Fri Oct 15 14:37:36 2021
 @author: rummeny
 """
 import pandas as pd
+import numpy as np
+import ilias_evaluator as ev
+
+# General constants
+result_identifier = '_results'
+ff_pool_identifier = 'Formelfrage'
+sc_pool_identifier = 'SingleChoice'
+export_prefix = '2021w_ETG_'
+Filename_Export_Praktikum_Bonus = export_prefix+'Pra_Bonus.xlsx'
+name_marker = 'Ergebnisse von Testdurchlauf '   # 'Ergebnisse von Testdurchlauf 1 für '
+run_marker = 'dummy_text'   # run marker currently not used
+tasks = ['Formelfrage', 'Single Choice', 'Lückentextfrage', 'Hotspot/Imagemap', 'Freitext eingeben']
+res_marker_ft = "Ergebnis"
+var_marker = '$v'
+res_marker = '$r'
+marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft] 
+
+# Specific constants for members
+mem_dir = '2022w_ETG_Members/'
+psso_import = []
+ilias_mem = pd.read_excel(mem_dir+'2021_06_28_10-011624867289_member_export_2341446.xlsx', 
+                          sheet_name='Mitglieder')
+ilias_mem = ilias_mem.loc[ilias_mem['Matrikelnummer'].dropna().index]
+# Specific constants for Praktikum
+# What Notes by what total percentage points?
+pra_scheme = pd.Series(data= [0,    50], 
+                       index=['NB','BE'])
+pra_experiment = [1, 2, 3]
+pra_dir = '2021w_ETG_Praktikum/'
+
+# test data
+[pra_ilias_result, pra_pool_ff, pra_pool_sc] = ev.get_excel_files(pra_experiment, pra_dir)
+
+# read bonus list from old Praktika 
+old_praktika = pd.read_excel(pra_dir+'2021s_Bonuspunkte_Praktika.xlsx', 
+                            sheet_name='Tabelle1')
+print('Praktika import OK')
+# read psso member list
+psso_members_origin = ev.import_psso_members(psso_import)
+members = ilias_mem
+members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
+members['Name_'] = np.nan       # members['Name'].str.replace("'","")
+members['Benutzername'] = np.nan
+members['E-Mail'] = np.nan
+members['Bonus_ZT'] = np.nan
+members['Bonus_Pra'] = np.nan
+members['Bonus_Pkt'] = np.nan
+members['Kohorte'] = np.nan
+members['Exam_Pkt'] = np.nan
+members['Ges_Pkt'] = np.nan
+members['ILIAS_Pkt'] = np.nan
+members['Note'] = np.nan
+for i in range(len(members)): 
+# add a space behind the komma of the name
+    vorname = members.loc[i, 'Vorname']
+    nachname = members.loc[i, 'Nachname']
+    members.loc[i, 'Name_'] = nachname + ', ' + vorname
+# get Benutzername and Email from ilias_mem
+    mtknr_sel = ilias_mem['Matrikelnummer'].astype(int)==members['Matrikelnummer'][i]
+    if sum(mtknr_sel)==0: 
+        # psso member is not an ilias member
+        continue
+    members.loc[i,'Benutzername'] = ilias_mem['Benutzername'][mtknr_sel].values.item()
+    members.loc[i,'E-Mail'] = ilias_mem['E-Mail'][mtknr_sel].values.item()
+## remove ' from Names to get ILIAS equivalent names
+members['Name_'] = members['Name_'].str.replace("'", "")
+print('PSSO member import OK')
+
+i_lev1 = []
+i_lev2 = []
+subtitles = ['Ges_Pkt', 'Note']
+for n in pra_experiment:
+    i_lev1 += ['V'+str(n)]*len(subtitles)
+    i_lev2 += subtitles
+c_tests = pd.MultiIndex.from_arrays([i_lev1, i_lev2], names = ['test', 'parameter'])
+course_data = pd.DataFrame(index=members.index, columns=c_tests)
+
+## disable here
+########### LOOP of evaluating all considered Praktikum experiments ############
+praktikum = []
+for pra in range(len(pra_experiment)):
+    praktikum.append([])
+    for sub in range(len(pra_ilias_result[pra])):
+        print('started evaluating Praktikum test', pra_ilias_result[pra][sub][21:])
+        praktikum[pra].append(ev.Test(members, marker, pra_experiment[pra],
+                                 pra_ilias_result[pra][sub]))
+        print("process ILIAS data...")
+        praktikum[pra][sub].process_ilias()
+    
+print("evaluate pra bonus...")
+[members, course_data]= ev.evaluate_praktika(members, pra_prev=old_praktika, 
+                                             pra_tests=praktikum, 
+                                             d_course=course_data)
 
 #####
-old_pra = pd.read_excel('20210330_Liste Bonuspunkte Praktika WS17-WS20.xlsx', sheet_name='aktuelle Tabelle')
-old_pra = old_pra.rename(columns={'Matrikelnr.':'Matrikelnummer'})
-old_pra = old_pra.drop(columns=['Unnamed: 6', 'Unnamed: 7'])
+old_praktika = old_praktika.drop(columns=['Unnamed: 6', 'Unnamed: 7'])
 pra_2021s = course_data[course_data[['V1','V2','V3']].columns[[1,3,5]]]
 pra_2021s = pra_2021s.rename(columns={('V1','Note'):'V1', ('V2', 'Note'):'V2', ('V3','Note'):'V3'})
 # filter rows with all nan
 pra_2021s = pra_2021s[~pra_2021s.isnull().all(axis=1)]
 pra_2021s = pra_2021s.replace(['BE', 'NB'], [1, 0]).fillna(0)
 pra_2021s = pra_2021s.merge(members.loc[pra_2021s.index, 'Matrikelnummer'], left_index=True, right_index=True)
-pra_2021s['Semester']='2021s'
+pra_2021s['Semester']='2021w'
 pra_2021s['Summe'] = pra_2021s[['V1', 'V2', 'V3']].sum(axis=1)
 pra_2021s = pra_2021s[['Semester', 'Matrikelnummer', 'V1', 'V2', 'V3', 'Summe']]
-pra = old_pra.append(pra_2021s, ignore_index=True)
+pra = old_praktika.append(pra_2021s, ignore_index=True)
 pra = pra.sort_values(by = ['Semester', 'Matrikelnummer'],ascending=[False, True])
-pra.to_excel('2021s_Bonuspunkte_Praktika.xlsx',index=False)
+pra.to_excel(Filename_Export_Praktikum_Bonus, index=False)
