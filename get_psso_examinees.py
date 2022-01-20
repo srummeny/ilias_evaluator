@@ -54,4 +54,4 @@ for i in nta['Matrikel'].dropna().index:
 psso_members = psso_members.sort_values(['Kohorte', 'Matrikelnummer'], ignore_index=True)
 print('Kohorten:')
 print(psso_members['Kohorte'].value_counts())
-psso_members.to_excel(psso_member_export, index=False, na_rep='N/A')
+psso_members.to_excel(member_dir+psso_member_export, index=False, na_rep='N/A')
