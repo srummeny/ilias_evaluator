@@ -638,7 +638,8 @@ def evaluate_praktika(members: pd.DataFrame,
                       pra_tests: list = None,
                       d_course: pd.DataFrame = None,
                       scheme: pd.Series = None,
-                      tests_p_bonus: int = 1):
+                      tests_p_bonus: int = 1, 
+                      semester_name: str = '2021w'):
     """evaluation of praktikum bonus of a course and returns members['Bonus_Pra'] 
     and full DataFrame of bonus_ges
     
@@ -696,12 +697,24 @@ def evaluate_praktika(members: pd.DataFrame,
                         else:
                             d_course.loc[p, [(pra_i, 'Note')]] = 'NB'
                     # if experiment is still not passed, check if it is passed in previous semesters  
-    # TODO: include export of updated Praktika bonus list
-# 1.b Get passed Experiments in previous Semesters
+# 1.b export of updated Praktika bonus list
+    new_pra_list = d_course[d_course[['V1','V2','V3']].columns[[1,3,5]]]
+    new_pra_list.columns = new_pra_list.columns.droplevel(1)
+    # filter rows with all nan
+    new_pra_list = new_pra_list[~new_pra_list.isnull().all(axis=1)]
+    new_pra_list = new_pra_list.replace(['BE', 'NB'], [1, 0]).fillna(0)
+    new_pra_list['Matrikelnummer'] = members.loc[new_pra_list.index, 'Matrikelnummer']
+    new_pra_list['Semester']= semester_name
+    new_pra_list['Summe'] = new_pra_list[['V1', 'V2', 'V3']].sum(axis=1)
+    new_pra_list = new_pra_list[['Semester', 'Matrikelnummer', 'V1', 'V2', 'V3', 'Summe']]
+    new_pra_list = new_pra_list.append(pra_prev, ignore_index=True)
+    new_pra_list = new_pra_list.sort_values(by = ['Semester', 'Matrikelnummer'],ascending=[False, True])
+    new_pra_list.to_excel(semester_name+'_ETG_Pra_Bonus.xlsx', index=False)
+# 1.c Get passed Experiments in previous Semesters
     pra = ['V1','V2','V3'] 
     # iterate every member
     for p in members.index.to_list():
-        sel = pra_prev['Matrikelnr.'] == members['Matrikelnummer'][p]
+        sel = pra_prev['Matrikelnummer'] == members['Matrikelnummer'][p]
         if any(sel):
             # iterate every experiment
             for i in range(len(pra)):
