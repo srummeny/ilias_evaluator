@@ -23,8 +23,8 @@ marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft]
 
 # Specific constants for members
 # read psso member list
-psso_members = pd.read_excel('2021w_ETG_PSSO_Members.xlsx', 
-                             sheet_name='Tabelle1')
+psso_members = pd.read_excel('2021w_ETG_Members/psso-2022-01-19/20220121_Kohortenaufteilung_ETG_full_SR.xlsx', 
+                             sheet_name='Sheet1')
 members = psso_members
 members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
 members['Benutzername'] = np.nan
@@ -45,7 +45,7 @@ print('PSSO member import OK')
 zt_scheme = pd.Series(data= [0,    70], 
                    index=['NB','BE'])
 zt_test = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-zt_dir = 'ETG_SS21_ZT/'
+zt_dir = '2021w_ETG_Zwischentests/'
 
 # Specific constants for Praktikum
 # What Notes by what total percentage points?
@@ -58,8 +58,8 @@ pra_dir = 'ETG_SS21_Praktikum/'
 [zt_ilias_result, zt_pool_ff, zt_pool_sc] = ev.get_excel_files(zt_test, zt_dir)
 
 # read bonus list from Praktika 
-praktika = pd.read_excel('2021w_ETG_Praktika_Bonus.xlsx', 
-                         sheet_name='Tabelle1')
+# praktika = pd.read_excel('2021w_ETG_Praktika_Bonus.xlsx', 
+#                         sheet_name='Tabelle1')
 print('Praktika import OK')
 
 i_lev1 = []
