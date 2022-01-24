@@ -101,7 +101,6 @@ class Test:
         # drop all empty rows of ILIAS_results until first name appears 
         while not self.r_ilias.loc[self.r_ilias.index[0]].any():
             self.r_ilias = self.r_ilias.drop(index=self.r_ilias.index[0])
-        self.r_ilias = self.r_ilias.set_index('Name')
         # get important test parameters from aggregated ILIAS data
         self.n_tasks = int(self.r_ilias['Gesamtzahl der Fragen'].dropna()[0])
         self.max_pts = self.r_ilias['Maximal erreichbare Punktezahl'][0]
@@ -111,8 +110,12 @@ class Test:
         for i in range(len(df.sheet_names[1:])):
             self.d_ilias.append(df.parse(df.sheet_names[i + 1], header=None, ignore_index=True,
                                          names=[df.sheet_names[i + 1], 'values']))
+        if len(df.sheet_names[1:])==1:
+            self.compact_format = True
+        else:
+            self.compact_format = False
         # initialize row finder of init and valid run of participant
-        self.row_finder = pd.DataFrame(index=range(len(self.d_ilias)), columns=['i_mem', 'row_init', 'row_valid'])
+        self.row_finder = pd.DataFrame(index=range(len(self.r_ilias['Name'].dropna())), columns=['i_mem', 'row_init', 'row_valid'])
         # 4. Initialize self. entries containing all task details of the participant
         # create MultiIndex 
         i_tasks = []
@@ -124,7 +127,9 @@ class Test:
             i_sub += subtitles
         c_ent = pd.MultiIndex.from_arrays([i_tasks, i_sub], names=['task', 'parameter'])
         self.ent = pd.DataFrame(index=self.members.index, columns=c_ent)
-
+        
+        self.log = pd.DataFrame(columns=['Test', 'Matrikelnummer', 'Task', 'formula', 'var', 'input_res', 'Error', 'Points'])
+                              
     def process_ilias(self):
         """ processes ILIAS Data for the test and saves it in self.ent for
         all members
@@ -150,32 +155,94 @@ class Test:
         var_marker = self.marker[2]  # variable marker
         res_marker = self.marker[3]  # result marker
         res_marker_ft = self.marker[4]  # result marker of Freitextaufgabe
-        # iterate every test participant
+        name_marker = 'für'
+        # iterate every sheet of test participant
         for p in range(len(self.d_ilias)):
-            name = self.d_ilias[p].columns[0]
-            # print(p, name)
-            # 2. Find name of participant and match it with self.members
-            # match name with self.members['Name_']
-            if self.members['Name_'].str.contains(name).any():
-                # check if name is in  self.members['Name_']
-                p_sel = self.members['Name_'].str.contains(name)
-            else:
-                # check if  self.members['Name_'] is in name
-                p_sel = [self.members['Name_'].values[i] in name for i in range(len(self.members))]
-            # get member index in self.members 
-            if any(p_sel):
-                i_mem = self.members['Name_'][p_sel].index.values.item()
-            else:
-                print('### Skipped participant', p, name, ', because it is not in PSSO member list! ###')
-                continue
+            sheet = self.d_ilias[p].columns[0]
+            # print(p, sheet)
+            if not self.compact_format: # if there is a sheet for every participant
+            # 2.a Find name of participant and match it with self.members via Matrikelnummer
+            # find index selector of name from d_ilias in r_ilias
+                name = sheet    
+                name_sel = self.r_ilias['Name'].dropna() == name 
+                if not any (name_sel): # if no match is found
+                    # find a name in r_ilias which contains sheet name
+                    if name == "Tiendo Nzako, Elito Dauvillier":
+                        name = "Tiendo Nzako, Elito D'auvillier"
+                    name_sel = self.r_ilias['Name'].dropna().str.contains(name)
+                    print(sheet, name, self.r_ilias['Name'].dropna()[name_sel])
+                matnr = self.r_ilias['Matrikelnummer'].dropna()[name_sel].astype(int).values.item()
+            # check if Matrikelnummer is in  self.members['Matrikelnummer'] (PSSO-list)
+                p_sel = self.members['Matrikelnummer'] == matnr
+                # get member index in self.members 
+                if any(p_sel):
+                    i_mem = self.members.index[p_sel].values.item()
+                else:
+                    print('### Skipped participant', p, matnr, name, ', because it is not in PSSO member list! ###')
+                    continue
+            # 4.a Create self.row_finder of valid results according to ILIAS
+                row = self.r_ilias['Name'].dropna().index[name_sel].values.item()
+                self.row_finder.loc[p, 'i_mem'] = i_mem
+                self.row_finder.loc[p, 'row_init'] = row
+                # find number of valid run in ILIAS_results
+                i_val = self.r_ilias['Bewerteter Durchlauf'][row].astype(int)
+                
+                if i_val > 1:  # only if first run =! valid run
+                    # get row of valid_run according to i_val
+                    i_run = self.r_ilias['Durchlauf'][row:].values
+                    j=0
+                    while float(i_val) != i_run[j]:
+                        j += 1
+                    self.row_finder.loc[p, 'row_valid'] = row + j
+                else:  # first run == the valid run
+                    self.row_finder.loc[p, 'row_valid'] = row
             # (re-)set i_run and i_task 
             i_run = 0
             i_task = 0
+            j = -1
             # 3. Get ILIAS data of participant and iterate every row to extract it
             # skip empty rows
-            i_data = self.d_ilias[p][name].dropna().index.values
+            i_data = self.d_ilias[p][sheet].dropna().index.values
             for i in i_data:  # iterate every Excel Cell
-                txt = self.d_ilias[p][name][i]
+                txt = self.d_ilias[p][sheet][i]
+                if self.compact_format and name_marker in txt: # if all participant data is in one sheet and there is a new participant?
+                    j += 1
+                # 2.b Find name of participant and match it with self.members via Matrikelnummer
+                    name = txt[txt.find(name_marker)+4:]
+                # find index selector of name from d_ilias in r_ilias
+                    name_sel = self.r_ilias['Name'].dropna() == name 
+                    if not any (name_sel): # if no match is found
+                        if name == "Tiendo Nzako, Elito Dauvillier":
+                            name = "Tiendo Nzako, Elito D'auvillier"
+                # find a name in r_ilias which contains sheet name
+                        name_sel = self.r_ilias['Name'].dropna().str.contains(name)
+                    matnr = self.r_ilias['Matrikelnummer'].dropna()[name_sel].astype(int).values.item()
+                # check if Matrikelnummer is in  self.members['Matrikelnummer'] (PSSO-list)
+                    p_sel = self.members['Matrikelnummer'] == matnr
+                # reset run and task indexes
+                    i_run = 0
+                    i_task = 0
+                # get member index in self.members 
+                    if any(p_sel):
+                        i_mem = self.members.index[p_sel].values.item()
+                    else:
+                        print('### Skipped participant', j, matnr ,name, ', because it is not in PSSO member list! ###')
+                        continue
+                # 4.b Create self.row_finder of valid results according to ILIAS
+                    row = self.r_ilias['Name'].dropna().index[name_sel].values.item()
+                    self.row_finder.loc[j, 'i_mem'] = i_mem
+                    self.row_finder.loc[j, 'row_init'] = row
+                    # find number of valid run in ILIAS_results
+                    i_val = self.r_ilias['Bewerteter Durchlauf'][row]
+                    if i_val > 1:  # only if first run =! valid run
+                        # get row of valid_run according to i_val
+                        i_run = self.r_ilias['Durchlauf'][row:].values
+                        k=0
+                        while float(i_val) != i_run[k]:
+                            k += 1
+                        self.row_finder.loc[j, 'row_valid'] = row + k
+                    else:  # first run == the valid run
+                        self.row_finder.loc[j, 'row_valid'] = row
                 """
                 TODO: consider task IDs
                 # id_title = title[0:title.find(" ")]      # FragenID
@@ -220,34 +287,6 @@ class Test:
                     self.R_sc[0].append(pts)
                     self.R_sc[1].append(txt) 
                     self.ent.loc[i_mem, (a_t, 'R')] = self.R_sc
-            # 4. Create self.row_finder of valid results according to ILIAS
-            try:  # try to find row of Name in r_ilias (identical)
-                row = self.r_ilias.index.get_loc(name)
-            except KeyError:  # try to find row of Name in r_ilias (containing)
-                if name== "Tiendo Nzako, Elito Dauvillier":
-                    name = "Tiendo Nzako, Elito D'auvillier"
-                names = self.r_ilias.index.dropna()
-                name_sel = [name in names[i] for i in range(len(names))]
-                row = self.r_ilias.index.get_loc(names[name_sel].values.item())
-            self.row_finder.loc[p, 'i_mem'] = i_mem
-            self.row_finder.loc[p, 'row_init'] = row
-        # find row of valid run of all participants
-        for i in range(len(self.row_finder)):
-            row = self.row_finder['row_init'][i]
-            if np.isnan(row):  # skip rows containing nan
-                continue
-            else:
-                # find number of valid run in ILIAS_results
-                i_val = self.r_ilias['Bewerteter Durchlauf'][row].astype(int) - 1
-                if i_val > 0:  # only if first run =! valid run
-                    # get row of valid_run according to i_val
-                    i_run = self.r_ilias['Durchlauf'][row:].values
-                    j=0
-                    while float(i_val + 1) != i_run[j]:
-                        j += 1
-                    self.row_finder.loc[i, 'row_valid'] = row + j
-                else:  # first run == the valid run
-                    self.row_finder.loc[i, 'row_valid'] = row
 
     def process_pools(self):
         """ process task pools, evaluate results and returns self.ent with 
@@ -328,7 +367,8 @@ class Test:
                         self.ent[(a_t, 'Tol')][m].append(tol)
                         if (~self.ent[(a_t, 'Var')].isna()[m] and  # if var not NaN
                                 len(self.ent[(a_t, 'R')][m]) >= n + 1):  # if R-list is long enough
-                            r_ref = eval_ilias(formula, var=var, res=input_res)
+                            context = 'Participant '+str(m)+' '+self.members['Name'][m]+',Task '+a_t+', '+formula+', var='+str(var)+', input_res='+str(input_res)
+                            r_ref = eval_ilias(formula, var=var, res=input_res, context=context)
         # 2.a evaluate Formelfrage task
                             if r_ref is None:
                                 print('### Result of Member', str(m),
@@ -336,6 +376,15 @@ class Test:
                             elif r_ref == 'not_valid':
                                 # if there is a formula error, decide in favour of participant
                                 pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
+                                log = pd.DataFrame({'Test':[self.name], 
+                                                    'Matrikelnummer':[self.members['Matrikelnummer'][m]],
+                                                    'Task':[a_t],
+                                                    'formula':[formula],
+                                                    'var':[var],
+                                                    'input_res':[input_res],
+                                                    'Error': ['ZeroDivisionError'], 
+                                                    'Points': [pkt]})
+                                self.log = self.log.append(log, ignore_index=True)
                             else:
                                 input_res.append(r_ref)
                                 self.ent[(a_t, 'R_ref')][m].append(r_ref)
@@ -469,7 +518,8 @@ class Test:
 
 def eval_ilias(formula_ilias: str,
                var=None,
-               res=None):
+               res=None, 
+               context='no context provided!'):
     """Reformatting and calculation of ILIAS formula with given var and res 
     inputs, returning calculated result
     @author: srummeny, 21.6.21 (edited Version of E. Waffenschmidt, 3.9.2020)
@@ -482,6 +532,8 @@ def eval_ilias(formula_ilias: str,
         variable values as used as input in formula
     res: list of float
         result values as used as input in formula
+    context: str
+        context information of task and/or participant, test, etc.
     """
 # 1. Reformat formula_ilias to formula_py
     if res is None:
@@ -513,7 +565,7 @@ def eval_ilias(formula_ilias: str,
         result = eval(formula_py)
     except ZeroDivisionError:  # case for formula error
         result = 'not_valid'
-        print('### ZeroDivisionError ocurred ###')
+        print('### ZeroDivisionError ocurred ###', context)
     except SyntaxError:  # if not, result is None
         result = None
         print('### Formula', formula_py, 'with var=', var, 'and res=', res,
