@@ -10,10 +10,10 @@ import glob
 cohorts = ['A', 'B', 'C']
 cohorts_normal = cohorts[0]
 now = dt.datetime.now()
-member_dir = '2021w_Members/psso-2022-01-19/'
+member_dir = '2021w_ETG_Members/psso-2022-01-24/'
 psso_identifier = 'prf'
 NTA_identifier = 'NTA'
-psso_member_export = now.strftime('%d%m%Y')+'_Kohortenaufteilung_ETG_full_SR.xlsx'
+psso_member_export = now.strftime('%Y%m%d')+'_Kohortenaufteilung_ETG_full_SR.xlsx'
 psso_import = []
 nta = []
 
