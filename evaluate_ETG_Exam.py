@@ -16,19 +16,17 @@ print ("edited by Silvan Rummeny, TH-Köln")
 # What Notes by what total percentage points? 
 scheme = pd.Series(data= [0,    44,   49,   53,   58,   62,   67,   71,   76,   80,   84],
                    index=["5,0","4,0","3,7","3,3","3,0","2,7","2,3","2,0","1,7","1,3","1,0"]) 
-considered_tests = ['Kohorte A', 'Kohorte F']
-import_dir = '2021w_Members/'
-psso_identifier = 'prf'
+considered_tests = ['Kohorte A', 'Kohorte B', 'Kohorte C']
+import_dir = '2021w_ETG_Probeklausur/'
 result_file_identifier = '_results'
 pool_FF_file_identifier = 'Formelfrage'
 pool_SC_file_identifier = 'SingleChoice'
-psso_import = [] 
 result_import = []
 import_pool_FF = []
 import_pool_SC = []
 import_members = import_dir+'2021_06_28_10-011624867289_member_export_2341446.xlsx'
                           # '2021_06_14_08-401623652810_member_export_2341446.xlsx' # old file
-export_prefix = 'ETG_SS21_Exam_'
+export_prefix = '2021w_ETG_Probeklausur_'
 Filename_Export = export_prefix+'exp_Ergebnisse.xlsx'
 Filename_Export_public = export_prefix+'exp_Ergebnisse_pub.xlsx'
 Filename_Export_PSSO = export_prefix+'exp_Ergebnissse_psso.xlsx'
@@ -41,12 +39,6 @@ res_marker_ft = "Ergebnis"
 var_marker = '$v'
 res_marker = '$r'
 marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft] 
-# find all psso member lists in directory
-for i in range(len(glob.glob(import_dir+'/*.xls'))):
-    if psso_identifier in glob.glob(import_dir+'/*.xls')[i]:
-        psso_import.append(glob.glob(import_dir+'/*.xls')[i])
-    else:
-        print('### Skipped file:', glob.glob(import_dir+'/*.xls')[i])
 # find all import data and pools in directory
 for j in considered_tests:
     if len(glob.glob(import_dir+str(j)+'/*.xlsx')) > 3:
@@ -59,29 +51,16 @@ for j in considered_tests:
             import_pool_FF.append(glob.glob(import_dir+str(j)+'/*.xlsx')[i])
         if pool_SC_file_identifier in glob.glob(import_dir+str(j)+'/*.xlsx')[i]:
             import_pool_SC.append(glob.glob(import_dir+str(j)+'/*.xlsx')[i])
-# import_bonus = '20210526_Übersicht Bonuspunkte.xlsx'
-# import_psso = 'psso_alle.xls'
-
-
 #### disable here
-# read psso member list
-psso_members_origin = ev.import_psso_members(psso_import)
-psso_members = psso_members_origin.rename(columns={'mtknr':'Matrikelnummer', 
-                                                   'sortname':'Name', 
-                                                   'nachname':'Nachname', 
-                                                   'vorname':'Vorname'})
 # add a space behind the komma of the name
-for i in range(len(psso_members)):
-    name = psso_members.loc[i, 'Name']
-    komma = name.find(',')+1
-    psso_members.loc[i, 'Name'] = name[:name.find(',')+1] + ' ' + name[name.find(',')+1:]
-    psso_members.loc[i, 'Name_'] = name[:name.find(',')+1] + ' ' + name[name.find(',')+1:]
 print('PSSO member import OK')
 # read bonus list from Praktika 
 praktika = pd.read_excel('ETG_SS21_ZT/20210614_ETG_SS21_Bonuspunkte.xlsx', 
                             sheet_name='Liste Bonuspunkte - Praktika')
 print('Praktika import OK')
-# read ILIAS member list incl. bonus
+# find all psso member lists in directory
+# TODO: read all members from .xlsx
+# TODO: import_bonus = '20210526_Übersicht Bonuspunkte.xlsx'
 members = pd.read_excel('ETG_SS21_ZT/ETG_SS21_ZT_exp_Ergebnisse.xlsx', 
                       sheet_name='Sheet1')
 members = members.rename(columns={'Bonuspunkte':'Bonus_Pkt'})
