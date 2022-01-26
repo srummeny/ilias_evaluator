@@ -23,7 +23,7 @@ marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft]
 
 # Specific constants for members
 # read psso member list
-psso_members = pd.read_excel('2021w_ETG_Members/psso-2022-01-19/20220121_Kohortenaufteilung_ETG_full_SR.xlsx', 
+psso_members = pd.read_excel('2021w_ETG_Members/psso-2022-01-24/20220124_Kohortenaufteilung_ETG_full_SR.xlsx', 
                              sheet_name='Sheet1')
 members = psso_members
 members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
@@ -49,8 +49,6 @@ zt_dir = '2021w_ETG_Zwischentests/'
 
 # Specific constants for Praktikum
 # What Notes by what total percentage points?
-pra_scheme = pd.Series(data= [0,    50], 
-                       index=['NB','BE'])
 pra_experiment = [1, 2, 3]
 pra_dir = 'ETG_SS21_Praktikum/'
 
@@ -58,8 +56,8 @@ pra_dir = 'ETG_SS21_Praktikum/'
 [zt_ilias_result, zt_pool_ff, zt_pool_sc] = ev.get_excel_files(zt_test, zt_dir)
 
 # read bonus list from Praktika 
-# praktika = pd.read_excel('2021w_ETG_Praktika_Bonus.xlsx', 
-#                         sheet_name='Tabelle1')
+pra_prev = pd.read_excel('2021w_ETG_Pra_Bonus.xlsx',
+                         sheet_name='Sheet1')
 print('Praktika import OK')
 
 i_lev1 = []
@@ -68,29 +66,42 @@ subtitles = ['Ges_Pkt', 'Note']
 for n in zt_test:
     i_lev1 += ['ZT'+str(n)]*len(subtitles)
     i_lev2 += subtitles
+for n in pra_experiment:
+    i_lev1 += ['V'+str(n)]*len(subtitles)
+    i_lev2 += subtitles
 c_tests = pd.MultiIndex.from_arrays([i_lev1, i_lev2], names = ['test', 'parameter'])
 course_data = pd.DataFrame(index=members.index, columns=c_tests)
 
 ## disable here
-######### LOOP of evaluating all considered intermediate tests ############
-intermediate_tests = []
-for zt in range(len(zt_test)):
-    intermediate_tests.append([])
-    for sub in range(len(zt_ilias_result[zt])):
-        print('started evaluating intermediate test', zt_test[zt])
-        intermediate_tests[zt].append(ev.Test(members, marker, zt_test[zt],
-                                          zt_ilias_result[zt][sub], ff=zt_pool_ff[zt][sub], sc=zt_pool_sc[zt][sub]))
+######### LOOP of evaluating all considered intermediate tests (zt) ############
+zt = []
+# Log-Dataframe for occurance of Errors
+errorlog = pd.DataFrame(columns=['Test', 'Matrikelnummer', 'Task', 'formula', 'var', 'input_res', 'tol', 'Error', 'Points'])
+# Log-Dataframe for occurance of Differences between ILIAS result points and ilias_evaluator points
+difflog = pd.DataFrame(columns=['Test', 'Matrikelnummer', 'Task', 'formula', 'var', 'input_res', 'tol', 'Points_ILIAS', 'Points', 'diff'])      
+for t in range(len(zt_test)):
+    zt.append([])
+    for sub in range(len(zt_ilias_result[t])):
+        print('started evaluating intermediate test', zt_test[t])
+        zt[t].append(ev.Test(members, marker, zt_test[t],
+                                          zt_ilias_result[t][sub], ff=zt_pool_ff[t][sub], sc=zt_pool_sc[t][sub]))
         print("process ILIAS data...")
-        intermediate_tests[zt][sub].process_ilias()
+        zt[t][sub].process_ilias()
         print("process task pools and evaluate...")
-        intermediate_tests[zt][sub].process_pools()
+        zt[t][sub].process_pools()
+        errorlog = errorlog.append(zt[t][sub].errorlog)
+        difflog = errorlog.append(zt[t][sub].difflog)
     
 print("evaluate zt bonus...")
 [members, course_data]= ev.evaluate_intermediate_tests(members, 
-                                                       zt_tests=intermediate_tests, 
+                                                       zt_tests=zt, 
                                                        d_course=course_data,  
                                                        scheme=zt_scheme,
-                                                       tests_p_bonus=2)
+                                                       tests_p_bonus=3)
+[members, course_data]= ev.evaluate_praktika(members, 
+                                             pra_prev = pra_prev,
+                                             d_course=course_data,
+                                             tests_p_bonus=1)
 
 ###### EVALUATE TOTAL BONUS ###########
 members = ev.evaluate_bonus(members)
