@@ -11,8 +11,8 @@ result_identifier = '_results'
 ff_pool_identifier = 'Formelfrage'
 sc_pool_identifier = 'SingleChoice'
 export_prefix = '2021w_ETG'
-Filename_Export_detailed = export_prefix+'exp_Bonus_det.xlsx'
-Filename_Export_public = export_prefix+'exp_Bonus_pub.xlsx'
+Filename_Export_detailed = export_prefix+'_Bonuspunkte_det.xlsx'
+Filename_Export_public = export_prefix+'_Bonuspunkte_pub.xlsx'
 name_marker = 'Ergebnisse von Testdurchlauf '   # 'Ergebnisse von Testdurchlauf 1 für '
 run_marker = 'dummy_text'   # run marker currently not used
 tasks = ['Formelfrage', 'Single Choice', 'Lückentextfrage', 'Hotspot/Imagemap', 'Freitext eingeben']
@@ -107,10 +107,26 @@ print("evaluate zt bonus...")
 members = ev.evaluate_bonus(members)
 
 ######## Export for lecturer (detailed, not anonymous) ###########
-#TODO: export Bonus with details 
+# TODO: Export hier noch nötig?
 
 ######## Export for participants (short, anonymous) ############
-#TODO. export Bonus without details
-
+Bonus_exp_pub = members[['Matrikelnummer','Bonus_ZT', 'Bonus_Pra', 'Bonus_Pkt']]
+Bonus_exp_pub= Bonus_exp_pub.rename(columns={'Bonus_ZT':'Boni durch Zwischentests',
+                                      'Bonus_Pra':'Boni durch Praktika',
+                                      'Bonus_Pkt':'Summe'})
+writer = pd.ExcelWriter(Filename_Export_public)
+Bonus_exp_pub.to_excel(writer ,index=False, na_rep='N/A', startrow=5)
+workbook = writer.book
+worksheet = writer.sheets['Sheet1']
+title_format = workbook.add_format({'bold': True, 'font_size':16})
+worksheet.write_string(0,0,'Bonuspunkte Elektrische Energietechnik (ETG), WiSe 21/22', title_format)
+worksheet.write_string(1,0,'1 bestandenes Praktikum = 1 Bonuspunkt')
+worksheet.write_string(2,0,'3 bestandene Zwischentests = 1 Bonuspunkt')
+worksheet.write_string(3,0,'Die Summe der Bonuspunkte kann nur max. 5 Punkte betragen')
+worksheet.write_string(4,0,'N/A = nicht teilgenommen')
+worksheet.set_column(0,0,15)
+worksheet.set_column(1,1,25)
+worksheet.set_column(2,2,20)
+writer.save()
 print("Excel Export OK")
 print ('### done! ###')
