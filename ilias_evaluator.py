@@ -268,8 +268,7 @@ class Test:
                     self.R_sc = [[],[]]
                 # is there a new variable or result?
                 elif (txt.startswith(var_marker) or
-                      txt.startswith(res_marker) or
-                      txt.startswith(res_marker_ft)):
+                      txt.startswith(res_marker)):       # or txt.startswith(res_marker_ft)):
                     # if there is a value for variable or result available
                     if ~self.d_ilias[p]['values'].isna()[i]:
                         if txt.startswith(var_marker):
@@ -281,8 +280,11 @@ class Test:
                             r = self.d_ilias[p]['values'][i]
                             r_i = int(txt.replace(res_marker, '')) - 1
                             self.ent.loc[i_mem, (a_t, 'R')][r_i] = r
+                elif txt.startswith('Ergebnisse von Testdurchlauf'):
+                    continue
                 else:
                     # catch selected Single-Choice-Answeres (no marker used)
+                    #a_t = 'A' + str(i_task)
                     self.ent.loc[i_mem, (a_t, 'R')] = [[],[]]
                     pts = self.d_ilias[p]['values'][i]
                     self.R_sc[0].append(pts)
@@ -314,7 +316,10 @@ class Test:
             row_i = self.row_finder['row_init'][sel_m].values.item()
             # get ilias benutzername from r_ilias if it is NaN
             if self.members['Benutzername'].isna()[m]:
-                self.members.loc[m, 'Benutzername'] = self.r_ilias.iloc[row_r, 0]
+                self.members.loc[m,'Benutzername'] = self.r_ilias.loc[row_r,'Benutzername']
+                self.members.loc[m,'bearbeitete Fragen'] = self.r_ilias.loc[row_r,'Bereits bearbeitete Fragen']
+                self.members.loc[m,'Bearbeitungsdauer'] = self.r_ilias.loc[row_r,'Bearbeitungsdauer']
+                self.members.loc[m,'Startzeit'] = self.r_ilias.loc[row_r,'Erster Aufruf']
             # iterate every tasks
             for t in range(self.ent.columns.levshape[0]):
                 pkt = 0  # set task points to zero (default)
@@ -366,14 +371,24 @@ class Test:
                         var = self.ent[(a_t, 'Var')][m]
                         self.ent[(a_t, 'Formula')][m].append(formula)
                         self.ent[(a_t, 'Tol')][m].append(tol)
-                        if (self.ent[(a_t, 'Var')].notna()[m] and  # if var not NaN
-                            self.ent[(a_t, 'R')][m][n] is not None):  # if R[n] not None
+                        if self.ent[(a_t, 'Var')].notna()[m] and self.ent[(a_t, 'Var')][m] !=[None]*15:  # if var not NaN and not equals list of None
                             context = 'Participant '+str(m)+' '+self.members['Name'][m]+',Task '+a_t+', '+formula+', var='+str(var)+', input_res='+str(input_res)
                             r_ref = eval_ilias(formula, var=var, res=input_res, context=context)
         # 2.a evaluate Formelfrage task
                             if r_ref is None:
                                 print('### Result of Member', str(m),
                                       ', Task', str(t + 1), 'is None! ###')
+                                pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
+                                log = pd.DataFrame({'Test':[self.name], 
+                                                    'Matrikelnummer':[self.members['Matrikelnummer'][m]],
+                                                    'Task':[a_t],
+                                                    'formula':[formula],
+                                                    'var':[var],
+                                                    'input_res':[input_res],
+                                                    'tol':[tol],
+                                                    'Error': ['Result is None'], 
+                                                    'Points': [pkt]})
+                                self.errorlog = self.errorlog.append(log, ignore_index=True)
                             elif r_ref == 'not_valid':
                                 # if there is a formula error, decide in favour of participant
                                 pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
@@ -389,7 +404,7 @@ class Test:
                                 self.errorlog = self.errorlog.append(log, ignore_index=True)
                             else:
                                 input_res.append(r_ref)
-                                self.ent[(a_t, 'R_ref')][m].append(r_ref)
+                                self.ent[(a_t, 'R_ref')][m][n] = r_ref
                                 # find r_min/r_max according to tol
                                 r_min = min(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100))
                                 r_max = max(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100))
@@ -397,20 +412,21 @@ class Test:
                                 r_min = min(floor(r_min * 10 ** prec) / 10 ** prec, r_min)
                                 r_max = max(round(r_max, prec), r_max)
                                 r_entry = self.ent[(a_t, 'R')][m][n]
-                                # if the entered result = str (e.g. when fractions are entered)
-                                if type(r_entry) == str:
-                                    r_entry = eval(r_entry)
-                                # update r_entry considering prec
-                                r_ent = floor(r_entry * 10 ** prec) / 10 ** prec
-                                # exception for 30.9.397-399
-                                if self.ent[(a_t, 'Title')][m] in ['30.9.397', '30.9.398', '30.9.399']:
-                                    #accept positive and negative answer
-                                    if ((r_ent >= r_min) and (r_ent <= r_max)) or ((-r_ent >= r_min) and (-r_ent <= r_max)):  # check correct result
-                                        pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
-                                        print(self.members['Matrikelnummer'][m], a_t)
-                                else:
-                                    if (r_ent >= r_min) and (r_ent <= r_max):  # check correct result
-                                        pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
+                                if r_entry is not None: 
+                                    # if the entered result = str (e.g. when fractions are entered)
+                                    if type(r_entry) == str:
+                                        r_entry = eval(r_entry)
+                                    # update r_entry considering prec
+                                    r_ent = floor(r_entry * 10 ** prec) / 10 ** prec
+                                    # exception for 30.9.397-399
+                                    if self.ent[(a_t, 'Title')][m] in ['30.9.397', '30.9.398', '30.9.399']:
+                                        #accept positive and negative answer
+                                        if ((r_ent >= r_min) and (r_ent <= r_max)) or ((-r_ent >= r_min) and (-r_ent <= r_max)):  # check correct result
+                                            pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
+                                            print(self.members['Matrikelnummer'][m], a_t)
+                                    else:
+                                        if (r_ent >= r_min) and (r_ent <= r_max):  # check correct result
+                                            pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
                         else:  # no result or vars available
                             continue
                     if len(self.ent.loc[m, (a_t, 'Pkt')]) == 0:
