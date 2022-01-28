@@ -13,8 +13,8 @@ print ("Version", version)
 print ("(c) by Eberhard Waffenschmidt, TH-Köln")
 print ("edited by Silvan Rummeny, TH-Köln")
 
-# What Notes by what total percentage points? 
-scheme = pd.Series(data= [0,    44,   49,   53,   58,   62,   67,   71,   76,   80,   84],
+# What Notes by what total percentage points (referenced without Bonus)? 
+scheme = pd.Series(data= [0,    50,   55,   60,   65,   70,   75,   80,   85,   90,   95],
                    index=["5,0","4,0","3,7","3,3","3,0","2,7","2,3","2,0","1,7","1,3","1,0"]) 
 considered_tests = ['Kohorte A', 'Kohorte B', 'Kohorte C']
 import_dir = '2021w_ETG_Probeklausur/'
@@ -39,6 +39,32 @@ res_marker_ft = "Ergebnis"
 var_marker = '$v'
 res_marker = '$r'
 marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft] 
+
+# Specific constants for members
+# read psso member list
+
+psso_members = pd.read_excel('2021w_ETG_Members/psso-2022-01-24/20220124_Kohortenaufteilung_ETG_full_SR.xlsx', 
+                             sheet_name='Sheet1')
+members = psso_members
+members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
+members['Benutzername'] = np.nan
+members['bearbeitete Fragen'] = np.nan
+members['Bearbeitungsdauer'] = np.nan
+members['Startzeit'] = np.nan
+members['Bonus_Pkt'] = np.nan
+members['Kohorte'] = np.nan
+members['Exam_Pkt'] = np.nan
+members['Ges_Pkt'] = np.nan
+members['ILIAS_Pkt'] = np.nan
+members['Note'] = np.nan
+
+print('PSSO member import OK')
+
+import_bonus = pd.read_excel('2021w_ETG_Bonuspunkte_pub.xlsx', header=5, sheet_name='Sheet1')
+members['Bonus_Pkt'] = import_bonus['Summe']
+
+print('Bonus import of members OK')
+
 # find all import data and pools in directory
 for j in considered_tests:
     if len(glob.glob(import_dir+str(j)+'/*.xlsx')) > 3:
@@ -52,56 +78,38 @@ for j in considered_tests:
         if pool_SC_file_identifier in glob.glob(import_dir+str(j)+'/*.xlsx')[i]:
             import_pool_SC.append(glob.glob(import_dir+str(j)+'/*.xlsx')[i])
 #### disable here
-# add a space behind the komma of the name
-print('PSSO member import OK')
-# read bonus list from Praktika 
-praktika = pd.read_excel('ETG_SS21_ZT/20210614_ETG_SS21_Bonuspunkte.xlsx', 
-                            sheet_name='Liste Bonuspunkte - Praktika')
-print('Praktika import OK')
-# find all psso member lists in directory
-# TODO: read all members from .xlsx
-# TODO: import_bonus = '20210526_Übersicht Bonuspunkte.xlsx'
-members = pd.read_excel('ETG_SS21_ZT/ETG_SS21_ZT_exp_Ergebnisse.xlsx', 
-                      sheet_name='Sheet1')
-members = members.rename(columns={'Bonuspunkte':'Bonus_Pkt'})
-members['Name_'] = members['Name'].str.replace("'","")
-members['Exam_Pkt'] = np.nan
-members['Ges_Pkt'] = np.nan
-members['Note'] = np.nan
-# compare ILIAS members and psso_members
-# ilias course members which are missing in psso --> ignore in evaluation
-members = members.loc[members['Matrikelnummer'].dropna().index]
-sel_ilias = [members['Matrikelnummer'].astype(int).values[i] not in psso_members['Matrikelnummer'].astype(int).values for i in range(len(members))]
-# psso members which are missing in ilias course --> add to evaluation
-sel_psso = [psso_members['Matrikelnummer'].astype(int).values[i] not in members['Matrikelnummer'].astype(int).values for i in range(len(psso_members))]
-# get praktikum bonus of members missing in ilias course
-missing_members = psso_members.loc[sel_psso].copy()
-missing_members.loc[:,'Bonus_ZT'] = 0.0
-missing_members.loc[:,'Bonus_Pra'] = 0.0
-missing_members.loc[:,'Bonus_Pkt'] = 0.0
-[missing_members, course_data]= ev.evaluate_bonus(missing_members, praktika)
-members = pd.concat([members, missing_members], ignore_index=True)
-print('Bonus import of members OK')
 ######### LOOP of evaluating several cohorts (c) of the exam ############
 exam = []
+# Log-Dataframe for occurance of Errors
+errorlog = pd.DataFrame(columns=['Kohorte', 'Matrikelnummer', 'Task', 'formula', 'var', 'input_res', 'tol', 'Error', 'Points'])
+# Log-Dataframe for occurance of Differences between ILIAS result points and ilias_evaluator points
+difflog = pd.DataFrame(columns=['Kohorte', 'Matrikelnummer', 'Points_ILIAS', 'Points', 'diff'])      
 for c in range(len(considered_tests)):
     print('started evaluating exam,', considered_tests[c])
     exam.append(ev.Test(members, marker, considered_tests[c],
                                       result_import[c], import_pool_FF[c], 
-                                      import_pool_SC[c]))
+                                      import_pool_SC[c], daIr=True))
     print("process ILIAS data...")
-    exam[c].process_d_ilias()
+    exam[c].process_ilias()
     print("process task pools and evaluate...")
     exam[c].process_pools()
+    errorlog = errorlog.append(exam[c].errorlog)
     
 print("evaluate exam...")
 [members, all_entries] = ev.evaluate_exam(members, exam, scheme, max_pts=41) 
+sel = members['Exam_Pkt'].dropna()!=members['ILIAS_Pkt'].dropna()
+df = members.loc[sel[sel].index]
+log = pd.DataFrame({'Kohorte':df['Kohorte'],
+                    'Matrikelnummer':df['Matrikelnummer'],
+                    'Points_ILIAS':df['ILIAS_Pkt'],
+                    'Points':df['Exam_Pkt']})
+log['diff'] = log['Points'] - log['Points_ILIAS']
+difflog = difflog.append(log)
 print ('export results as excel...')
-drop_columns = ['Name_']
-members.drop(drop_columns, axis=1).to_excel(Filename_Export, index=False, na_rep='N/A')
+members.loc[members['Note'].dropna().index].to_excel(Filename_Export, index=False, na_rep='N/A')
 members['n_answers'] = np.nan
-for p in range(len(members['Note'].dropna().index)):
-    members.loc[p, 'n_answers'] = sum(exam[0].entries.loc[3, pd.IndexSlice[:,'R']].str.len()>0)
+for p in members['Note'].dropna().index:
+    members.loc[p, 'n_answers'] = sum(exam[0].ent.loc[3, pd.IndexSlice[:,'R']].str.len()>0)
 # members['Note'].hist()
 # members['n_answers'].dropna().value_counts()
 # members['n_answers'].hist()
