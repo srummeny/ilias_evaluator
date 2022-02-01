@@ -177,6 +177,7 @@ class Test:
                 # check if Matrikelnummer is in  self.members['Matrikelnummer'] (PSSO-list)
                     p_sel = self.members['Matrikelnummer'] == matnr
                 except ValueError: # Exception for participants without any Matrikelnummer
+                    matnr = np.nan
                     p_sel = [False]
                 # get member index in self.members 
                 if any(p_sel):
@@ -220,9 +221,13 @@ class Test:
                             name = "Tiendo Nzako, Elito D'auvillier"
                 # find a name in r_ilias which contains sheet name
                         name_sel = self.r_ilias['Name'].dropna().str.contains(name)
-                    matnr = self.r_ilias['Matrikelnummer'].dropna()[name_sel].astype(int).values.item()
-                # check if Matrikelnummer is in  self.members['Matrikelnummer'] (PSSO-list)
-                    p_sel = self.members['Matrikelnummer'] == matnr
+                    try:
+                        matnr = self.r_ilias['Matrikelnummer'].dropna()[name_sel].astype(int).values.item()
+                    # check if Matrikelnummer is in  self.members['Matrikelnummer'] (PSSO-list)
+                        p_sel = self.members['Matrikelnummer'] == matnr
+                    except ValueError: # Exception for participants without any Matrikelnummer
+                        matnr = np.nan
+                        p_sel = [False]
                 # reset run and task indexes
                     i_run = 0
                     i_task = 0
@@ -287,6 +292,11 @@ class Test:
                     #a_t = 'A' + str(i_task)
                     self.ent.loc[i_mem, (a_t, 'R')] = [[],[]]
                     pts = self.d_ilias[p]['values'][i]
+                    if type(pts) == str: 
+                        if all(chr.isdigit() for chr in pts):
+                            pts = eval(pts)
+                    elif ~np.isnan(pts):
+                        pts = int(pts)
                     self.R_sc[0].append(pts)
                     self.R_sc[1].append(txt) 
                     self.ent.loc[i_mem, (a_t, 'R')] = self.R_sc
@@ -452,6 +462,11 @@ class Test:
                                                 'Points_ILIAS': [self.r_ilias.iloc[row_r, sel_c].values.item()], 
                                                 'Points': [pkt]})
                             self.difflog = self.difflog.append(log, ignore_index=True)
+                    # reduce lists containing None elements
+                    self.ent.loc[m,(a_t, 'R')] = drop_None(self.ent[(a_t, 'R')][m])
+                    self.ent.loc[m,(a_t, 'R_ref')] = drop_None(self.ent[(a_t, 'R_ref')][m])
+                    self.ent.loc[m,(a_t, 'Var')] = drop_None(self.ent[(a_t, 'Var')][m])
+
             # if task type is SingleChoice
                 elif any(sel_sc):
                     # if there are ILIAS_results for single task available
@@ -522,6 +537,9 @@ class Test:
                                 # compare pts patterns in Formula and R, e.g. [0, 0, 1] vs. [0, 0, 1] --> correct!
                                 if self.ent[(a_t, 'Formula')][m][0] == self.ent[(a_t, 'R')][m][0]:
                                     pkt = sum(self.ent[(a_t, 'Formula')][m][0])
+                                # delete empty list of empty strings from R and copy correct answer pattern to R_ref
+                                self.ent.loc[m, (a_t, 'R')] = self.ent.loc[m, (a_t, 'R')][0]
+                                self.ent.loc[m, (a_t, 'R_ref')] = self.ent.loc[m, (a_t, 'Formula')][0]
                             # if there is text available for Single-Choice options
                             else:
                                 for ref in range(len(self.ent[(a_t, 'R_ref')][m])):
@@ -534,6 +552,7 @@ class Test:
                         self.ent.loc[m, (a_t, 'Pkt')] = pkt
             # if task is task for test correction
                 elif self.ent[(a_t, 'Title')][m] == "Bitte ignorieren!":
+                    self.ent.loc[m, (a_t, 'R')] = "Bitte ignorieren!"
                     self.ent.loc[m, (a_t, 'Pkt')] = 0
             # if no task is identified
                 else:
@@ -551,6 +570,22 @@ class Test:
             if self.doc_aggr_ILIAS_results:
                 self.members.loc[m, 'ILIAS_Pkt'] = self.r_ilias.loc[row_i, 'Testergebnis in Punkten']
 
+def drop_None(l:list):
+    """Drop all None Elements in a list (e.g. self.ent[(:,'Var' or 'R' or 'R_ref')][m])
+    
+    Parameters
+    --------------
+    l: list
+        input list which has to be reduced
+    """
+    if all(l[i] is None for i in range(len(l))):
+        l_out = np.nan
+    else:
+        i = max(idx for idx,val in enumerate(l) if val is not None)
+        l_out = l[:i+1]
+        if len(l_out) == 1:
+            l_out = l_out[0]
+    return l_out
 
 def eval_ilias(formula_ilias: str,
                var=None,
@@ -669,6 +704,45 @@ def get_excel_files(considered_tests: list,
             else:
                 result_files[j_i].append(None)
     return result_files, pool_ff_files, pool_sc_files
+
+def get_originality_proof(members: pd.DataFrame):
+    """
+    """
+    import_dir = '2021w_ETG_Members/Identitaetskontrolle/'
+    SR = pd.read_excel(import_dir+'20220125_Kohortenaufteilung_ETG_full_Anwesenheitskontrolle_SR.xlsx', header=0, sheet_name='Sheet1')
+    KM = pd.read_excel(import_dir+'Kohortenaufteilung_ETG_Probeklausur_20220125_KM.xlsx', header=0, sheet_name='Sheet1')
+    TK = pd.read_excel(import_dir+'Kohortenaufteilung_ETG_Probeklausur_20220125_TK.xlsx', header=0, sheet_name='Sheet1')
+    RG = pd.read_excel(import_dir+'Kohortenaufteilung_ETG_Probeklausur_20220125_full_RG.xlsx', header=0, sheet_name='Sheet1')
+    sr_c = 'Kontrolle'
+    km_c = 'Breakout-Session'
+    tk_c = 'Identitätskontrolle'
+    rg_c = 'Geprüft'
+    df = TK.merge(SR[['Matrikelnummer', sr_c]], how='outer')
+    df = df.merge(KM[['Matrikelnummer', km_c]], how='outer') 
+    df = df.merge(RG[['Matrikelnummer', rg_c]], how='outer') 
+    df = df.drop(columns=['Unnamed: 15'])
+    print(df[tk_c].dropna()[df[tk_c].dropna()=='Nein'])
+    df.loc[df[tk_c].dropna()[df[tk_c].dropna()=='Nein'].index,tk_c]=np.nan
+    print(df[km_c].dropna()[df[km_c].dropna().str.len()>1])
+    df.loc[df[km_c].dropna()[df[km_c].dropna().str.len()>1].index,km_c]=np.nan
+    print(df[km_c].dropna()[df[km_c].dropna()=='x'])
+    df.loc[df[km_c].dropna()[df[km_c].dropna()=='x'].index,km_c]=np.nan
+    df['Identitaetsnachweis'] = df[[sr_c,km_c, tk_c, rg_c]].any(axis=1)
+    df = df.loc[df['Matrikelnummer'].dropna().index]
+    df['Matrikelnummer']=df['Matrikelnummer'].astype(int)
+    for i in range(len(df)):
+        j = members.index[members['Matrikelnummer']==df['Matrikelnummer'][i]]
+        members.loc[j, 'Identitaetsnachweis'] = df['Identitaetsnachweis'][i]
+    print('Is there a Participant without Note? :',members['Identitaetsnachweis'][members['Note'][members['Note'].isna()].index].any())
+    
+    EigErk = pd.read_excel('2021w_ETG_Members/2022125_Eigenstaendigkeitserklaerungen_Probepruefung.xlsx', header=5, sheet_name='Tabelle1')
+    EigErk['Eigenstaendigkeitserklaerung'] = EigErk['Bewertung']=='bestanden'
+    for i in range(len(EigErk)):
+        j = members.index[members['Benutzername']==EigErk['Benutzername'][i]]
+        members.loc[j, 'Eigenstaendigkeitserklaerung'] = EigErk['Eigenstaendigkeitserklaerung'][i]
+    members['Eigenstaendigkeitserklaerung'] = members['Eigenstaendigkeitserklaerung'].fillna(False)
+    
+    return members
 
 
 def evaluate_intermediate_tests(members: pd.DataFrame,
@@ -862,6 +936,8 @@ def evaluate_exam(members: pd.DataFrame,
         maximum achievable exam points, used as reference for note scheme
     """
     all_entries = exam[0].ent.copy()
+    members['Note'] = np.nan
+    pass_limit = np.ceil(scheme['4,0']/100*max_pts)
     # iterate every cohort
     for c in range(len(exam)):
         participants = exam[c].ent.any(axis=1)
@@ -873,23 +949,32 @@ def evaluate_exam(members: pd.DataFrame,
     # 1. Determine reached Pkt by exam
     # 2. Determine reached Pkt including bonus
                 members.loc[p, 'Ges_Pkt'] = np.nansum([members.loc[p, 'Exam_Pkt'], members.loc[p, 'Bonus_Pkt']])
-    # 3. Evaluate course note of participant
+    # 3. Determine prc of Ges_Pkt above pass_limit
+                if members['Ges_Pkt'][p] >= pass_limit:
+                    members.loc[p, '% über Bestehensgrenze'] = str(round((members['Ges_Pkt'][p]/pass_limit-1) * 100, 2)) + ' %'
+    # 4. Evaluate course note of participant
                 if members.loc[p, 'Ges_Pkt'] == np.nan: 
-                    members.loc[p, 'Note'] = scheme[0][0]
+                    members.loc[p, 'Note'] = scheme.index[0]
                 else:
-                    n_sel = members.loc[p, 'Ges_Pkt'] / max_pts * 100 >= scheme
-                    # print(n_sel)
-                    members.loc[p, 'Note'] = n_sel.index[n_sel][-1]
-                    # members.loc[p, 'Note'] = scheme[0][n_sel.index[n_sel][-1]]
+                    if not members[['Identitaetsnachweis','Eigenstaendigkeitserklaerung']].isna().all().all():
+                    # evaluate course note of participant considering identity control and declaration of originality
+                        if members.loc[p,['Identitaetsnachweis','Eigenstaendigkeitserklaerung']].all():
+                            n_sel = members.loc[p, 'Ges_Pkt'] / max_pts * 100 >= scheme
+                            members.loc[p, 'Note'] = n_sel.index[n_sel][-1]
+                        else:
+                            print(p)
+                            members.loc[p, 'Note'] = scheme.index[0]
+                            print(p, members.loc[p, 'Note'])
+                    else:
+                        n_sel = members.loc[p, 'Ges_Pkt'] / max_pts * 100 >= scheme
+                        members.loc[p, 'Note'] = n_sel.index[n_sel][-1]
             except TypeError:
                 print('### Exam and note evaluation failed for Member', p,
                       members.loc[p, 'Name'], 'in test', exam[c].name, '###')
-    # 4. Create pd.DataFrame containing all entries of all cohorts together
+    # 5. Create pd.DataFrame containing all entries of all cohorts together
         # overwrite all_entries (usually nan-rows) by values of exam[c].ent
         all_entries.update(exam[c].ent)
-    """
-    # TODO: reduce all_entries 'Var' and 'R' lists to not None values
-    """
+    # members['% über Bestehensgrenze'] = members['% über Bestehensgrenze'].to_string(formatters={'% über Bestehensgrenze': '{:,.2%}'.format})
     n_all = len(members['Note'])
     n_part = len(members['Note'].dropna())
     n_fail = len(members[members['Note']=='5,0'])
