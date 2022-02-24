@@ -16,8 +16,8 @@ print ("edited by Silvan Rummeny, TH-Köln")
 # What Notes by what total percentage points (referenced without Bonus)? 
 scheme = pd.Series(data= [0,    50,   55,   60,   65,   70,   75,   80,   85,   90,   95],
                    index=["5,0","4,0","3,7","3,3","3,0","2,7","2,3","2,0","1,7","1,3","1,0"]) 
-considered_tests = ['Kohorte A', 'Kohorte B', 'Kohorte C']
-import_dir = '2021w_ETG_Probeklausur/'
+considered_tests = ['Kohorte A', 'Kohorte B', 'Kohorte C', 'Kohorte D', 'Kohorte E', 'Kohorte F']
+import_dir = '2021w_ETG_Open_Book_Prüfung/'
 result_file_identifier = '_results'
 pool_FF_file_identifier = 'Formelfrage'
 pool_SC_file_identifier = 'SingleChoice'
@@ -25,7 +25,7 @@ result_import = []
 import_pool_FF = []
 import_pool_SC = []
 
-export_prefix = '2021w_ETG_Probeklausur_'
+export_prefix = '2021w_ETG_Open_Book_Prüfung_'
 Filename_Export = export_prefix+'exp_Ergebnisse.xlsx'
 Filename_Export_public = export_prefix+'exp_Ergebnisse_pub.xlsx'
 Filename_Export_PSSO = export_prefix+'exp_Ergebnissse_psso.xlsx'
@@ -43,7 +43,7 @@ marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft]
 # Specific constants for members
 # read psso member list
 
-psso_members = pd.read_excel('2021w_ETG_Members/psso-2022-01-24/20220124_Kohortenaufteilung_ETG_full_SR.xlsx', 
+psso_members = pd.read_excel('2021w_ETG_Members/Kohortenaufteilung_ETG_Open-Book-Prüfung_20220223_full_SR.xlsx', 
                              sheet_name='Sheet1')
 members = psso_members
 members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
@@ -185,7 +185,7 @@ ax_pkt_i = writer.book.add_format({'bold': True, 'fg_color':'#ffdbb6', 'border':
 footer = writer.book.add_format({'fg_color':'#ffff00', 'border': 1, 'align':'left'})
 footer_i = writer.book.add_format({'bold': True, 'fg_color':'#ffff00', 'border': 1, 'align':'left'})
 note = writer.book.add_format({'bold': True, 'fg_color':'#81d41a', 'border': 1, 'align':'left'})                         
-writer.sheets['Sheet1'].write_string(0,0,'Ergebnisse der Probeklausur vom 25.01.2022, Elektrische Energietechnik (ETG), WiSe 21/22')
+writer.sheets['Sheet1'].write_string(0,0,'Ergebnisse der Probeklausur vom 25.01.2022, Elektrotechnische Grundlagen (ETG), WiSe 21/22')
 writer.sheets['Sheet1'].set_row(0,cell_format=title)
 writer.sheets['Sheet1'].write_string(1,0,'A#_Student ist ihre getaetigte Antwort', subtitle)
 writer.sheets['Sheet1'].set_row(1,cell_format=subtitle)
