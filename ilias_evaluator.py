@@ -167,6 +167,7 @@ class Test:
             # find index selector of name from d_ilias in r_ilias
                 name = sheet  
                 name_sel = self.r_ilias['Name'].dropna() == name 
+                skip = False
                 if not any (name_sel): # if no match is found
                     # find a name in r_ilias which contains sheet name
                     if name == "Tiendo Nzako, Elito Dauvillier":
@@ -212,6 +213,7 @@ class Test:
                 txt = self.d_ilias[p][sheet][i]
                 if self.compact_format and name_marker in txt: # if all participant data is in one sheet and there is a new participant?
                     j += 1
+                    skip = False
                 # 2.b Find name of participant and match it with self.members via Matrikelnummer
                     name = txt[txt.find(name_marker)+4:]
                 # find index selector of name from d_ilias in r_ilias
@@ -236,6 +238,7 @@ class Test:
                         i_mem = self.members.index[p_sel].values.item()
                     else:
                         print('### Skipped participant', j, matnr ,name, ', because it is not in PSSO member list! ###')
+                        skip = True
                         continue
                 # 4.b Create self.row_finder of valid results according to ILIAS
                     row = self.r_ilias['Name'].dropna().index[name_sel].values.item()
@@ -252,54 +255,57 @@ class Test:
                         self.row_finder.loc[j, 'row_valid'] = row + k
                     else:  # first run == the valid run
                         self.row_finder.loc[j, 'row_valid'] = row
-                """
-                TODO: consider task IDs
-                # id_title = title[0:title.find(" ")]      # FragenID
-                # self.ent.loc[i_mem, (a_t, 'ID')]= id_title
-                """
-                # is there a new run?
-                if txt.startswith(run_marker):
-                    i_run += 1
-                    i_task = 1  # tasks start with integer 1
-                # is there a new task?
-                elif any([txt == tasks[j] for j in range(len(tasks))]):
-                    i_task += 1
-                    a_t = 'A' + str(i_task)
-                    title = self.d_ilias[p]['values'][i]
-                    self.ent.loc[i_mem, (a_t, 'Type')] = txt
-                    self.ent.loc[i_mem, (a_t, 'Title')] = title
-                    self.ent.loc[i_mem, (a_t, 'Var')] = [None] * 15
-                    self.ent.loc[i_mem, (a_t, 'R')] = [None] * 10
-                    self.R_sc = [[],[]]
-                # is there a new variable or result?
-                elif (txt.startswith(var_marker) or
-                      txt.startswith(res_marker)):       # or txt.startswith(res_marker_ft)):
-                    # if there is a value for variable or result available
-                    if ~self.d_ilias[p]['values'].isna()[i]:
-                        if txt.startswith(var_marker):
-                            var = self.d_ilias[p]['values'][i]
-                            v_i = int(txt.replace(var_marker, '')) - 1
-                            self.ent.loc[i_mem, (a_t, 'Var')][v_i] = var
-                        elif (txt.startswith(res_marker) or
-                              txt.startswith(res_marker_ft)):
-                            r = self.d_ilias[p]['values'][i]
-                            r_i = int(txt.replace(res_marker, '')) - 1
-                            self.ent.loc[i_mem, (a_t, 'R')][r_i] = r
-                elif txt.startswith('Ergebnisse von Testdurchlauf'):
+                if skip:
                     continue
                 else:
-                    # catch selected Single-Choice-Answeres (no marker used)
-                    #a_t = 'A' + str(i_task)
-                    self.ent.loc[i_mem, (a_t, 'R')] = [[],[]]
-                    pts = self.d_ilias[p]['values'][i]
-                    if type(pts) == str: 
-                        if all(chr.isdigit() for chr in pts):
-                            pts = eval(pts)
-                    elif ~np.isnan(pts):
-                        pts = int(pts)
-                    self.R_sc[0].append(pts)
-                    self.R_sc[1].append(txt) 
-                    self.ent.loc[i_mem, (a_t, 'R')] = self.R_sc
+                    """
+                    TODO: consider task IDs
+                    # id_title = title[0:title.find(" ")]      # FragenID
+                    # self.ent.loc[i_mem, (a_t, 'ID')]= id_title
+                    """
+                    # is there a new run?
+                    if txt.startswith(run_marker):
+                        i_run += 1
+                        i_task = 1  # tasks start with integer 1
+                    # is there a new task?
+                    elif any([txt == tasks[j] for j in range(len(tasks))]):
+                        i_task += 1
+                        a_t = 'A' + str(i_task)
+                        title = self.d_ilias[p]['values'][i]
+                        self.ent.loc[i_mem, (a_t, 'Type')] = txt
+                        self.ent.loc[i_mem, (a_t, 'Title')] = title
+                        self.ent.loc[i_mem, (a_t, 'Var')] = [None] * 15
+                        self.ent.loc[i_mem, (a_t, 'R')] = [None] * 10
+                        self.R_sc = [[],[]]
+                    # is there a new variable or result?
+                    elif (txt.startswith(var_marker) or
+                          txt.startswith(res_marker)):       # or txt.startswith(res_marker_ft)):
+                        # if there is a value for variable or result available
+                        if ~self.d_ilias[p]['values'].isna()[i]:
+                            if txt.startswith(var_marker):
+                                var = self.d_ilias[p]['values'][i]
+                                v_i = int(txt.replace(var_marker, '')) - 1
+                                self.ent.loc[i_mem, (a_t, 'Var')][v_i] = var
+                            elif (txt.startswith(res_marker) or
+                                  txt.startswith(res_marker_ft)):
+                                r = self.d_ilias[p]['values'][i]
+                                r_i = int(txt.replace(res_marker, '')) - 1
+                                self.ent.loc[i_mem, (a_t, 'R')][r_i] = r
+                    elif txt.startswith('Ergebnisse von Testdurchlauf'):
+                        continue
+                    else:
+                        # catch selected Single-Choice-Answeres (no marker used)
+                        #a_t = 'A' + str(i_task)
+                        self.ent.loc[i_mem, (a_t, 'R')] = [[],[]]
+                        pts = self.d_ilias[p]['values'][i]
+                        if type(pts) == str: 
+                            if all(chr.isdigit() for chr in pts):
+                                pts = eval(pts)
+                        elif ~np.isnan(pts):
+                            pts = int(pts)
+                        self.R_sc[0].append(pts)
+                        self.R_sc[1].append(txt) 
+                        self.ent.loc[i_mem, (a_t, 'R')] = self.R_sc
 
     def process_pools(self):
         """ process task pools, evaluate results and returns self.ent with 
@@ -366,21 +372,21 @@ class Test:
                 if any(sel_ff):
                     sel_formula = self.ff.loc[sel_ff, self.ff.columns.str.contains('formula')]
                     # initialize empty lists in following parameters
-                    self.ent[(a_t, 'Formula')][m] = []
-                    self.ent[(a_t, 'Tol')][m] = []
-                    self.ent[(a_t, 'Pkt')][m] = []
+                    self.ent[(a_t, 'Formula')][m] = [None] * 10
+                    self.ent[(a_t, 'Tol')][m] = [None] * 10
                     self.ent[(a_t, 'R_ref')][m] = [None] * 10
+                    self.ent[(a_t, 'Pkt')][m] = []
                     # iterate number of formulas/results of that task
                     for n in sel_formula.iloc[0][sel_formula.iloc[0].notna()].index.str[3].astype(int)-1: #sum([sel_formula.iloc[0] != ' '][0])):
-                        formula = sel_formula.iloc[0][sel_formula.iloc[0].notna()][n]
+                        formula = self.ff['res' + str(n + 1) + '_formula'][sel_ff].item()
                         formula = str(formula)
                         tol = self.ff['res' + str(n + 1) + '_tol'][sel_ff].item()
                         prec = self.ff['res' + str(n + 1) + '_prec'][sel_ff].item()
                         if not np.isnan(prec):
                             prec = int(prec)
                         var = self.ent[(a_t, 'Var')][m]
-                        self.ent[(a_t, 'Formula')][m].append(formula)
-                        self.ent[(a_t, 'Tol')][m].append(tol)
+                        self.ent[(a_t, 'Formula')][m][n] = formula
+                        self.ent[(a_t, 'Tol')][m][n] = tol
                         if self.ent[(a_t, 'Var')].notna()[m] and self.ent[(a_t, 'Var')][m] !=[None]*15:  # if var not NaN and not equals list of None
                             context = 'Participant '+str(m)+' '+self.members['Name'][m]+',Task '+a_t+', '+formula+', var='+str(var)+', input_res='+str(input_res)
                             r_ref = eval_ilias(formula, var=var, res=input_res, context=context)
@@ -465,6 +471,8 @@ class Test:
                     # reduce lists containing None elements
                     self.ent.loc[m,(a_t, 'R')] = drop_None(self.ent[(a_t, 'R')][m])
                     self.ent.loc[m,(a_t, 'R_ref')] = drop_None(self.ent[(a_t, 'R_ref')][m])
+                    self.ent.loc[m,(a_t, 'Formula')] = drop_None(self.ent[(a_t, 'Formula')][m])
+                    self.ent.loc[m,(a_t, 'Tol')] = drop_None(self.ent[(a_t, 'Tol')][m])
                     self.ent.loc[m,(a_t, 'Var')] = drop_None(self.ent[(a_t, 'Var')][m])
 
             # if task type is SingleChoice
@@ -708,39 +716,32 @@ def get_excel_files(considered_tests: list,
 def get_originality_proof(members: pd.DataFrame):
     """
     """
-    import_dir = '2021w_ETG_Members/Identitaetskontrolle/'
-    SR = pd.read_excel(import_dir+'20220125_Kohortenaufteilung_ETG_full_Anwesenheitskontrolle_SR.xlsx', header=0, sheet_name='Sheet1')
-    KM = pd.read_excel(import_dir+'Kohortenaufteilung_ETG_Probeklausur_20220125_KM.xlsx', header=0, sheet_name='Sheet1')
-    TK = pd.read_excel(import_dir+'Kohortenaufteilung_ETG_Probeklausur_20220125_TK.xlsx', header=0, sheet_name='Sheet1')
-    RG = pd.read_excel(import_dir+'Kohortenaufteilung_ETG_Probeklausur_20220125_full_RG.xlsx', header=0, sheet_name='Sheet1')
-    sr_c = 'Kontrolle'
-    km_c = 'Breakout-Session'
-    tk_c = 'Identitätskontrolle'
-    rg_c = 'Geprüft'
-    df = TK.merge(SR[['Matrikelnummer', sr_c]], how='outer')
-    df = df.merge(KM[['Matrikelnummer', km_c]], how='outer') 
-    df = df.merge(RG[['Matrikelnummer', rg_c]], how='outer') 
-    df = df.drop(columns=['Unnamed: 15'])
-    print(df[tk_c].dropna()[df[tk_c].dropna()=='Nein'])
-    df.loc[df[tk_c].dropna()[df[tk_c].dropna()=='Nein'].index,tk_c]=np.nan
-    print(df[km_c].dropna()[df[km_c].dropna().str.len()>1])
-    df.loc[df[km_c].dropna()[df[km_c].dropna().str.len()>1].index,km_c]=np.nan
-    print(df[km_c].dropna()[df[km_c].dropna()=='x'])
-    df.loc[df[km_c].dropna()[df[km_c].dropna()=='x'].index,km_c]=np.nan
-    df['Identitaetsnachweis'] = df[[sr_c,km_c, tk_c, rg_c]].any(axis=1)
+    files = glob.glob('2021w_ETG_Members/Identitaetskontrolle/*.xlsx')
+    dfs = []
+    for i in range(len(files)):
+        dfs.append(pd.read_excel(files[i], header=0, sheet_name='Sheet1'))                          
+    c0 = ['Matrikelnummer', 'Prüfer*In', 'Kontrolle Erfolgreich (X)']
+    c = ['Matrikelnummer','Kontrolle Erfolgreich (X)']
+    df = dfs[0][c0].merge(dfs[1][c], how='outer', on='Matrikelnummer', suffixes=('','_y'))
+    df[c[1]] = df[c[1]].fillna(df[c[1]+'_y'])
+    df = df.drop([c[1]+'_y'], axis=1)
+    for i in range(len(files)-2):
+        df = df.merge(dfs[i+2][c], how='outer', on='Matrikelnummer', suffixes=('','_y'))
+        df[c[1]] = df[c[1]].fillna(df[c[1]+'_y'])
+        df = df.drop([c[1]+'_y'], axis=1)
+    df['Identitaetsnachweis'] = df[c[1]].notna()
     df = df.loc[df['Matrikelnummer'].dropna().index]
     df['Matrikelnummer']=df['Matrikelnummer'].astype(int)
     for i in range(len(df)):
         j = members.index[members['Matrikelnummer']==df['Matrikelnummer'][i]]
         members.loc[j, 'Identitaetsnachweis'] = df['Identitaetsnachweis'][i]
-    print('Is there a Participant without Note? :',members['Identitaetsnachweis'][members['Note'][members['Note'].isna()].index].any())
-    
-    EigErk = pd.read_excel('2021w_ETG_Members/2022125_Eigenstaendigkeitserklaerungen_Probepruefung.xlsx', header=5, sheet_name='Tabelle1')
-    EigErk['Eigenstaendigkeitserklaerung'] = EigErk['Bewertung']=='bestanden'
-    for i in range(len(EigErk)):
-        j = members.index[members['Benutzername']==EigErk['Benutzername'][i]]
-        members.loc[j, 'Eigenstaendigkeitserklaerung'] = EigErk['Eigenstaendigkeitserklaerung'][i]
-    members['Eigenstaendigkeitserklaerung'] = members['Eigenstaendigkeitserklaerung'].fillna(False)
+    #TODO: add EigErk 
+#    EigErk = pd.read_excel('2021w_ETG_Members/2022125_Eigenstaendigkeitserklaerungen_Probepruefung.xlsx', header=5, sheet_name='Tabelle1')
+#    EigErk['Eigenstaendigkeitserklaerung'] = EigErk['Bewertung']=='bestanden'
+#    for i in range(len(EigErk)):
+#        j = members.index[members['Benutzername']==EigErk['Benutzername'][i]]
+#        members.loc[j, 'Eigenstaendigkeitserklaerung'] = EigErk['Eigenstaendigkeitserklaerung'][i]
+#    members['Eigenstaendigkeitserklaerung'] = members['Eigenstaendigkeitserklaerung'].fillna(False)
     
     return members
 
@@ -779,7 +780,7 @@ def evaluate_intermediate_tests(members: pd.DataFrame,
                 for p in t.row_finder['i_mem'].dropna().values:
                     try:
                         # determine total points of bonus test
-                        d_course.loc[p, [(zt_i, 'Ges_Pkt')]] = sum(t.ent.loc[p, pd.IndexSlice[:, 'Pkt']])
+                        d_course.loc[p, [(zt_i, 'Ges_Pkt')]] = np.nansum(t.ent.loc[p, pd.IndexSlice[:, 'Pkt']])
                         # get bonus test note
                         if d_course[(zt_i, 'Ges_Pkt')][p] / t.max_pts >= \
                                 scheme.iloc[1] / 100:
@@ -839,7 +840,7 @@ def evaluate_praktika(members: pd.DataFrame,
                     if scheme is not None: 
                         try:
                             # determine total points of bonus test
-                            d_course.loc[p, [(pra_i, 'Ges_Pkt')]] = sum(t.ent.loc[p, pd.IndexSlice[:, 'Pkt']])
+                            d_course.loc[p, [(pra_i, 'Ges_Pkt')]] = np.nansum(t.ent.loc[p, pd.IndexSlice[:, 'Pkt']])
                             # get bonus test note
                             if d_course[(pra_i, 'Ges_Pkt')][p] / t.max_pts >= \
                                     scheme.iloc[1] / 100:
@@ -962,9 +963,7 @@ def evaluate_exam(members: pd.DataFrame,
                             n_sel = members.loc[p, 'Ges_Pkt'] / max_pts * 100 >= scheme
                             members.loc[p, 'Note'] = n_sel.index[n_sel][-1]
                         else:
-                            print(p)
                             members.loc[p, 'Note'] = scheme.index[0]
-                            print(p, members.loc[p, 'Note'])
                     else:
                         n_sel = members.loc[p, 'Ges_Pkt'] / max_pts * 100 >= scheme
                         members.loc[p, 'Note'] = n_sel.index[n_sel][-1]
