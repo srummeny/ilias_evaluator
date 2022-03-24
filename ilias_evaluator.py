@@ -439,10 +439,27 @@ class Test:
                                         #accept positive and negative answer
                                         if ((r_ent >= r_min) and (r_ent <= r_max)) or ((-r_ent >= r_min) and (-r_ent <= r_max)):  # check correct result
                                             pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
-                                            print(self.members['Matrikelnummer'][m], a_t)
+                                            # print(self.members['Matrikelnummer'][m], a_t)
                                     else:
                                         if (r_ent >= r_min) and (r_ent <= r_max):  # check correct result
                                             pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
+                                    # exception for 05.3.723
+                                    if self.ent[(a_t, 'Title')][m] in ['05.3.723'] and pkt==0:
+                                        formula = self.ff['res2_formula'][sel_ff].item()
+                                        r_ref = eval_ilias(formula, var=var, res=input_res, context=context)
+                                        if r_ref is None or r_ref =='not_valid':
+                                            print('Calculation of 05.3.723 exception failed!')
+                                        else:
+                                            self.ent[(a_t, 'R_ref')][m][n] = r_ref 
+                                            # find r_min/r_max according to to
+                                            r_min = min(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100))
+                                            r_max = max(r_ref * (1 + tol / 100), r_ref * (1 - tol / 100))
+                                            # set r_min/r_max to minimal/maximal value considering prec
+                                            r_min = min(floor(r_min * 10 ** prec) / 10 ** prec, r_min)
+                                            r_max = max(round(r_max, prec), r_max)
+                                            if (r_ent >= r_min) and (r_ent <= r_max):  # check correct result
+                                                pkt += self.ff['res' + str(n + 1) + '_points'][sel_ff].item()
+                                                print('used exception of 05.3.723 for participant', str(m), 'task', str(t+1))
                         else:  # no result or vars available
                             continue
                     if len(self.ent.loc[m, (a_t, 'Pkt')]) == 0:
@@ -543,8 +560,11 @@ class Test:
                             # if there is no text available for Single-Choice options
                             if any(self.ent[(a_t, 'Formula')][m][1][i]==' ' for i in range(len(self.ent[(a_t, 'Formula')][m][1]))):
                                 # compare pts patterns in Formula and R, e.g. [0, 0, 1] vs. [0, 0, 1] --> correct!
-                                if self.ent[(a_t, 'Formula')][m][0] == self.ent[(a_t, 'R')][m][0]:
-                                    pkt = sum(self.ent[(a_t, 'Formula')][m][0])
+                                pkt_sel = np.array(self.ent[(a_t, 'R')][m][0]) == np.array(self.ent[(a_t, 'Formula')][m][0])
+                                pkt = np.array(self.ent[(a_t, 'Formula')][m][0])[pkt_sel].sum()
+                                ## old solution to get points:
+#                                if self.ent[(a_t, 'Formula')][m][0] == self.ent[(a_t, 'R')][m][0]:
+#                                    pkt = sum(self.ent[(a_t, 'Formula')][m][0])
                                 # delete empty list of empty strings from R and copy correct answer pattern to R_ref
                                 self.ent.loc[m, (a_t, 'R')] = self.ent.loc[m, (a_t, 'R')][0]
                                 self.ent.loc[m, (a_t, 'R_ref')] = self.ent.loc[m, (a_t, 'Formula')][0]
@@ -735,13 +755,21 @@ def get_originality_proof(members: pd.DataFrame):
     for i in range(len(df)):
         j = members.index[members['Matrikelnummer']==df['Matrikelnummer'][i]]
         members.loc[j, 'Identitaetsnachweis'] = df['Identitaetsnachweis'][i]
-    #TODO: add EigErk 
-#    EigErk = pd.read_excel('2021w_ETG_Members/2022125_Eigenstaendigkeitserklaerungen_Probepruefung.xlsx', header=5, sheet_name='Tabelle1')
-#    EigErk['Eigenstaendigkeitserklaerung'] = EigErk['Bewertung']=='bestanden'
-#    for i in range(len(EigErk)):
-#        j = members.index[members['Benutzername']==EigErk['Benutzername'][i]]
-#        members.loc[j, 'Eigenstaendigkeitserklaerung'] = EigErk['Eigenstaendigkeitserklaerung'][i]
-#    members['Eigenstaendigkeitserklaerung'] = members['Eigenstaendigkeitserklaerung'].fillna(False)
+ 
+    EigErk = pd.read_excel('2021w_ETG_Members/Eigenständigkeitserklärung/20220223_Eigenständigkeitserklärungen_Prüfung.xlsx', header=5, sheet_name='Tabelle1')
+    EigErk['Eigenstaendigkeitserklaerung'] = EigErk['Bewertung'].notna()
+    for i in range(len(EigErk)):
+        pre = EigErk[EigErk.columns[3]][i]
+        while pre.startswith(' '):
+            pre = pre[1:]
+        pos = EigErk[EigErk.columns[2]][i] 
+        if not any(members['Nachname']+', '+members['Vorname']==pos+', '+pre):
+            print('###EigErk:', pos+', '+pre, 'not found in "members"!!')
+        else:
+            j = members.index[members['Nachname']+', '+members['Vorname']==pos+', '+pre]
+            # j = members.index[members['Benutzername']==EigErk['Benutzername'][i]]
+            members.loc[j, 'Eigenstaendigkeitserklaerung'] = EigErk['Eigenstaendigkeitserklaerung'][i]
+    members['Eigenstaendigkeitserklaerung'] = members['Eigenstaendigkeitserklaerung'].fillna(False)
     
     return members
 
