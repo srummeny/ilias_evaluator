@@ -23,7 +23,7 @@ marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft]
 
 # Specific constants for members
 # read psso member list
-psso_members = pd.read_excel('2021w_ETG_Members/psso-2022-01-24/20220124_Kohortenaufteilung_ETG_full_SR.xlsx', 
+psso_members = pd.read_excel('2021w_ETG_Members/psso-2022-01-24/20220124_Probeprüfung_Kohortenaufteilung_ETG_full_SR.xlsx', 
                              sheet_name='Sheet1')
 members = psso_members
 members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
@@ -106,6 +106,7 @@ print("evaluate zt bonus...")
 ###### EVALUATE TOTAL BONUS ###########
 members = ev.evaluate_bonus(members)
 
+#%%
 ######## Export for lecturer (detailed, not anonymous) ###########
 # TODO: Export hier noch nötig?
 
