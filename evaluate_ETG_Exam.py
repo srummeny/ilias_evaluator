@@ -43,7 +43,7 @@ marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft]
 # Specific constants for members
 # read psso member list
 
-psso_members = pd.read_excel('2021w_ETG_Members/Kohortenaufteilung_ETG_Open-Book-Prüfung_20220223_full_SR.xlsx', 
+psso_members = pd.read_excel('2021w_ETG_Members/psso-2022-02-24/20220224_Kohortenaufteilung_ETG_full_SR.xlsx', 
                              sheet_name='Sheet1')
 members = psso_members
 members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
@@ -64,7 +64,8 @@ members['Note'] = np.nan
 print('PSSO member import OK')
 
 import_bonus = pd.read_excel('2021w_ETG_Bonuspunkte_pub.xlsx', header=5, sheet_name='Sheet1')
-members['Bonus_Pkt'] = import_bonus['Summe']
+bonus_mrg = pd.merge(members['Matrikelnummer'], import_bonus, how='left', on='Matrikelnummer') 
+members['Bonus_Pkt'] = bonus_mrg['Summe']
 
 print('Bonus import of members OK')
 
@@ -185,7 +186,7 @@ ax_pkt_i = writer.book.add_format({'bold': True, 'fg_color':'#ffdbb6', 'border':
 footer = writer.book.add_format({'fg_color':'#ffff00', 'border': 1, 'align':'left'})
 footer_i = writer.book.add_format({'bold': True, 'fg_color':'#ffff00', 'border': 1, 'align':'left'})
 note = writer.book.add_format({'bold': True, 'fg_color':'#81d41a', 'border': 1, 'align':'left'})                         
-writer.sheets['Sheet1'].write_string(0,0,'Ergebnisse der Probeklausur vom 25.01.2022, Elektrotechnische Grundlagen (ETG), WiSe 21/22')
+writer.sheets['Sheet1'].write_string(0,0,'Ergebnisse der Online-Open-Book-Prüfung vom 23.02.2022, Elektrotechnische Grundlagen (ETG), WiSe 21/22')
 writer.sheets['Sheet1'].set_row(0,cell_format=title)
 writer.sheets['Sheet1'].write_string(1,0,'A#_Student ist ihre getaetigte Antwort', subtitle)
 writer.sheets['Sheet1'].set_row(1,cell_format=subtitle)
