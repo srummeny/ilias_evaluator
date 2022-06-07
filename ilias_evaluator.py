@@ -78,7 +78,7 @@ class Test:
         sc: str
             path of SingleChoice task pool, default in None
         daIr: bool
-            document aggregated ILIAS results? - default is False
+            do you want to document aggregated ILIAS results? - default is False
         """
         self.members = members
         self.marker = marker
@@ -133,8 +133,7 @@ class Test:
         self.difflog = pd.DataFrame(columns=['Test', 'Matrikelnummer', 'Task', 'formula', 'var', 'input_res', 'tol', 'Points_ILIAS', 'Points', 'diff'])  
                     
     def process_ilias(self):
-        """ processes ILIAS Data for the test and saves it in self.ent for
-        all members
+        """ process ILIAS Data for the test and saves it in self.ent for all members
         
         Mainly used Parameters of class Test
         ----------------
@@ -172,6 +171,9 @@ class Test:
                     # find a name in r_ilias which contains sheet name
                     if name == "Tiendo Nzako, Elito Dauvillier":
                         name = "Tiendo Nzako, Elito D'auvillier"
+                        """TODO: Make sure that all names are detected (even 
+                        with apostrophe in the name or other names with special 
+                        features). Same also in line 224/225""" 
                     name_sel = self.r_ilias['Name'].dropna().str.contains(name)
                 try:
                     matnr = self.r_ilias['Matrikelnummer'].dropna()[name_sel].astype(int).values.item()
@@ -734,12 +736,21 @@ def get_excel_files(considered_tests: list,
     return result_files, pool_ff_files, pool_sc_files
 
 def get_originality_proof(members: pd.DataFrame):
+    """ 
+    import originality proof including identity check and declaration of originality
+    
+    Parameters
+    ------------
+    members: pd.DataFrame
+        DataFrame of all members with columns 'Identitaetsnachweis' and    
+        'Eigenstaendigkeitserklaerung', which has to get filled
     """
-    """
+    # import all excel files of documented identity check
     files = glob.glob('2021w_ETG_Members/Identitaetskontrolle/*.xlsx')
     dfs = []
     for i in range(len(files)):
-        dfs.append(pd.read_excel(files[i], header=0, sheet_name='Sheet1'))                          
+        dfs.append(pd.read_excel(files[i], header=0, sheet_name='Sheet1'))     
+    # work-around for merging all DataFrames of dfs                     
     c0 = ['Matrikelnummer', 'Prüfer*In', 'Kontrolle Erfolgreich (X)']
     c = ['Matrikelnummer','Kontrolle Erfolgreich (X)']
     df = dfs[0][c0].merge(dfs[1][c], how='outer', on='Matrikelnummer', suffixes=('','_y'))
@@ -753,11 +764,15 @@ def get_originality_proof(members: pd.DataFrame):
     df = df.loc[df['Matrikelnummer'].dropna().index]
     df['Matrikelnummer']=df['Matrikelnummer'].astype(int)
     for i in range(len(df)):
+        # match participant according to Matrikelnummer
         j = members.index[members['Matrikelnummer']==df['Matrikelnummer'][i]]
+        # set "Identitaetsnachweis" of the participant in DataFrame members
         members.loc[j, 'Identitaetsnachweis'] = df['Identitaetsnachweis'][i]
  
+    # import excel file of documented Eigenständigkeitserklärung
     EigErk = pd.read_excel('2021w_ETG_Members/Eigenständigkeitserklärung/20220223_Eigenständigkeitserklärungen_Prüfung.xlsx', header=5, sheet_name='Tabelle1')
     EigErk['Eigenstaendigkeitserklaerung'] = EigErk['Bewertung'].notna()
+    # work-around to get declaration of originality of every participant
     for i in range(len(EigErk)):
         pre = EigErk[EigErk.columns[3]][i]
         while pre.startswith(' '):
@@ -766,9 +781,11 @@ def get_originality_proof(members: pd.DataFrame):
         if not any(members['Nachname']+', '+members['Vorname']==pos+', '+pre):
             print('###EigErk:', pos+', '+pre, 'not found in "members"!!')
         else:
+            # match participant via Nachname and Vorname (unfortunately no Matrikelnummer available in regarded document)
             j = members.index[members['Nachname']+', '+members['Vorname']==pos+', '+pre]
             # j = members.index[members['Benutzername']==EigErk['Benutzername'][i]]
             members.loc[j, 'Eigenstaendigkeitserklaerung'] = EigErk['Eigenstaendigkeitserklaerung'][i]
+    # Filter: keep only members with valid 'Eigenstaendigkeitserklaerung'
     members['Eigenstaendigkeitserklaerung'] = members['Eigenstaendigkeitserklaerung'].fillna(False)
     
     return members
