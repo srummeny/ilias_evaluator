@@ -38,7 +38,7 @@ TODO:
         Freitextaufgabe
 @author: Silvan Rummeny"""
 
-__version__ = '2.1'
+__version__ = '2.2'
 __author__ = 'srummeny'
 
 import pandas as pd
