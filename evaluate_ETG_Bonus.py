@@ -6,11 +6,24 @@ import ilias_evaluator as ev
 import pandas as pd
 import numpy as np
 
+### Important entries
+
+export_prefix = '2022s_ETG'
+# read psso member list
+psso_members = pd.read_excel('2022s_ETG_Members/psso-2022-06-21/20220712_Kohortenaufteilung_ETG_full_SR.xlsx', 
+                             sheet_name='Sheet1')
+zt_dir = '2022s_ETG_Zwischentests/'
+# read bonus list from Praktika 
+pra = pd.read_excel('2022s_ETG_Pra_Bonus.xlsx',
+                    sheet_name='Sheet1')
+first_print_line = 'Bonuspunkte Elektrische Energietechnik (ETG), SoSe 22'      # WiSe 21/22
+
+###
+
 # General constants
 result_identifier = '_results'
 ff_pool_identifier = 'Formelfrage'
 sc_pool_identifier = 'SingleChoice'
-export_prefix = '2021w_ETG'
 Filename_Export_detailed = export_prefix+'_Bonuspunkte_det.xlsx'
 Filename_Export_public = export_prefix+'_Bonuspunkte_pub.xlsx'
 name_marker = 'Ergebnisse von Testdurchlauf '   # 'Ergebnisse von Testdurchlauf 1 für '
@@ -22,9 +35,6 @@ res_marker = '$r'
 marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft] 
 
 # Specific constants for members
-# read psso member list
-psso_members = pd.read_excel('2021w_ETG_Members/psso-2022-02-24/20220224_Kohortenaufteilung_ETG_full_SR.xlsx', 
-                             sheet_name='Sheet1')
 members = psso_members
 members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
 members['Benutzername'] = np.nan
@@ -45,19 +55,15 @@ print('PSSO member import OK')
 zt_scheme = pd.Series(data= [0,    70], 
                    index=['NB','BE'])
 zt_test = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-zt_dir = '2021w_ETG_Zwischentests/'
+
 
 # Specific constants for Praktikum
 # What Notes by what total percentage points?
 pra_experiment = [1, 2, 3]
-pra_dir = 'ETG_SS21_Praktikum/'
 
 # test data
 [zt_ilias_result, zt_pool_ff, zt_pool_sc] = ev.get_excel_files(zt_test, zt_dir)
 
-# read bonus list from Praktika 
-pra_prev = pd.read_excel('2021w_ETG_Pra_Bonus.xlsx',
-                         sheet_name='Sheet1')
 print('Praktika import OK')
 
 i_lev1 = []
@@ -99,9 +105,10 @@ print("evaluate zt bonus...")
                                                        scheme=zt_scheme,
                                                        tests_p_bonus=3)
 [members, course_data]= ev.evaluate_praktika(members, 
-                                             pra_prev = pra_prev,
+                                             pra_prev = pra,
                                              d_course=course_data,
-                                             tests_p_bonus=1)
+                                             tests_p_bonus=1, 
+                                             semester_name=export_prefix[0:5])
 
 ###### EVALUATE TOTAL BONUS ###########
 members = ev.evaluate_bonus(members)
@@ -112,16 +119,17 @@ members = ev.evaluate_bonus(members)
 
 ######## Export for participants (short, anonymous) ############
 Bonus_exp_pub = members[['Matrikelnummer','Bonus_ZT', 'Bonus_Pra', 'Bonus_Pkt']]
-Bonus_exp_pub= Bonus_exp_pub.rename(columns={'Bonus_ZT':'Boni durch Zwischentests',
+Bonus_exp_pub = Bonus_exp_pub.rename(columns={'Bonus_ZT':'Boni durch Zwischentests',
                                       'Bonus_Pra':'Boni durch Praktika',
                                       'Bonus_Pkt':'Summe'})
+Bonus_exp_pub = Bonus_exp_pub.sort_values(by=['Matrikelnummer'])
 writer = pd.ExcelWriter(Filename_Export_public)
 Bonus_exp_pub.to_excel(writer ,index=False, na_rep='N/A', startrow=5)
 workbook = writer.book
 worksheet = writer.sheets['Sheet1']
 title_format = workbook.add_format({'bold': True, 'font_size':16})
 align = workbook.add_format({'align':'left'})
-worksheet.write_string(0,0,'Bonuspunkte Elektrische Energietechnik (ETG), WiSe 21/22', title_format)
+worksheet.write_string(0,0, first_print_line, title_format)
 worksheet.write_string(1,0,'1 bestandenes Praktikum = 1 Bonuspunkt')
 worksheet.write_string(2,0,'3 bestandene Zwischentests = 1 Bonuspunkt')
 worksheet.write_string(3,0,'Die Summe der Bonuspunkte kann nur max. 5 Punkte betragen')
