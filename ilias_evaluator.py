@@ -744,6 +744,11 @@ def get_originality_proof(members: pd.DataFrame, id_dir: str, doo_dir: str = Non
     members: pd.DataFrame
         DataFrame of all members with columns 'Identitaetsnachweis' and    
         'Eigenstaendigkeitserklaerung', which has to get filled
+    id_dir: str
+        directory of the excel data of identity check (Identitaetsnachweis)
+    doo_dir: str
+        directory of the excel data of declaration of originality 
+        (Eigenstaendigkeitserklaerung). Default is None.
     """
     # import all excel files of documented identity check
     id_all = pd.read_excel(id_dir, sheet_name='Zusammenfassung')
