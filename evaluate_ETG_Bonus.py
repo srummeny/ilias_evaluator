@@ -12,11 +12,21 @@ export_prefix = '2022s_ETG'
 # read psso member list
 psso_members = pd.read_excel('2022s_ETG_Members/psso-2022-06-21/20220712_Kohortenaufteilung_ETG_full_SR.xlsx', 
                              sheet_name='Sheet1')
+print('PSSO member import OK')
 zt_dir = '2022s_ETG_Zwischentests/'
 # read bonus list from Praktika 
 pra = pd.read_excel('2022s_ETG_Pra_Bonus.xlsx',
                     sheet_name='Sheet1')
+print('Praktika import OK')
 first_print_line = 'Bonuspunkte Elektrische Energietechnik (ETG), SoSe 22'      # WiSe 21/22
+# Specific constants for intermediate tests (Zwischentests=zt)
+# What Notes by what total percentage points?
+zt_scheme = pd.Series(data= [0,    70], 
+                   index=['NB','BE'])
+zt_test = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+# Specific constants for Praktikum
+# What Notes by what total percentage points?
+pra_experiment = [1, 2, 3]
 
 ###
 
@@ -24,7 +34,6 @@ first_print_line = 'Bonuspunkte Elektrische Energietechnik (ETG), SoSe 22'      
 result_identifier = '_results'
 ff_pool_identifier = 'Formelfrage'
 sc_pool_identifier = 'SingleChoice'
-Filename_Export_detailed = export_prefix+'_Bonuspunkte_det.xlsx'
 Filename_Export_public = export_prefix+'_Bonuspunkte_pub.xlsx'
 name_marker = 'Ergebnisse von Testdurchlauf '   # 'Ergebnisse von Testdurchlauf 1 für '
 run_marker = 'dummy_text'   # run marker currently not used
@@ -48,23 +57,8 @@ members['Ges_Pkt'] = np.nan
 members['ILIAS_Pkt'] = np.nan
 members['Note'] = np.nan
 
-print('PSSO member import OK')
-
-# Specific constants for intermediate tests (Zwischentests=zt)
-# What Notes by what total percentage points?
-zt_scheme = pd.Series(data= [0,    70], 
-                   index=['NB','BE'])
-zt_test = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-
-
-# Specific constants for Praktikum
-# What Notes by what total percentage points?
-pra_experiment = [1, 2, 3]
-
 # test data
 [zt_ilias_result, zt_pool_ff, zt_pool_sc] = ev.get_excel_files(zt_test, zt_dir)
-
-print('Praktika import OK')
 
 i_lev1 = []
 i_lev2 = []
