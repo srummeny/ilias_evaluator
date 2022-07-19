@@ -735,7 +735,7 @@ def get_excel_files(considered_tests: list,
                 result_files[j_i].append(None)
     return result_files, pool_ff_files, pool_sc_files
 
-def get_originality_proof(members: pd.DataFrame):
+def get_originality_proof(members: pd.DataFrame, id_dir: str, doo_dir: str = None):
     """ 
     import originality proof including identity check and declaration of originality
     
@@ -746,46 +746,34 @@ def get_originality_proof(members: pd.DataFrame):
         'Eigenstaendigkeitserklaerung', which has to get filled
     """
     # import all excel files of documented identity check
-    files = glob.glob('2021w_ETG_Members/Identitaetskontrolle/*.xlsx')
-    dfs = []
-    for i in range(len(files)):
-        dfs.append(pd.read_excel(files[i], header=0, sheet_name='Sheet1'))     
-    # work-around for merging all DataFrames of dfs                     
-    c0 = ['Matrikelnummer', 'Prüfer*In', 'Kontrolle Erfolgreich (X)']
-    c = ['Matrikelnummer','Kontrolle Erfolgreich (X)']
-    df = dfs[0][c0].merge(dfs[1][c], how='outer', on='Matrikelnummer', suffixes=('','_y'))
-    df[c[1]] = df[c[1]].fillna(df[c[1]+'_y'])
-    df = df.drop([c[1]+'_y'], axis=1)
-    for i in range(len(files)-2):
-        df = df.merge(dfs[i+2][c], how='outer', on='Matrikelnummer', suffixes=('','_y'))
-        df[c[1]] = df[c[1]].fillna(df[c[1]+'_y'])
-        df = df.drop([c[1]+'_y'], axis=1)
-    df['Identitaetsnachweis'] = df[c[1]].notna()
-    df = df.loc[df['Matrikelnummer'].dropna().index]
-    df['Matrikelnummer']=df['Matrikelnummer'].astype(int)
-    for i in range(len(df)):
+    id_all = pd.read_excel(id_dir, sheet_name='Zusammenfassung')
+    id_all['Identitaetsnachweis'] = id_all['Unterschrift'].notna()
+    for i in range(len(id_all)):
         # match participant according to Matrikelnummer
-        j = members.index[members['Matrikelnummer']==df['Matrikelnummer'][i]]
+        j = members.index[members['Matrikelnummer']==id_all['Matrikelnummer'][i]]
         # set "Identitaetsnachweis" of the participant in DataFrame members
-        members.loc[j, 'Identitaetsnachweis'] = df['Identitaetsnachweis'][i]
+        members.loc[j, 'Identitaetsnachweis'] = id_all['Identitaetsnachweis'][i]
  
     # import excel file of documented Eigenständigkeitserklärung
-    EigErk = pd.read_excel('2021w_ETG_Members/Eigenständigkeitserklärung/20220223_Eigenständigkeitserklärungen_Prüfung.xlsx', header=5, sheet_name='Tabelle1')
-    EigErk['Eigenstaendigkeitserklaerung'] = EigErk['Bewertung'].notna()
-    # work-around to get declaration of originality of every participant
-    for i in range(len(EigErk)):
-        pre = EigErk[EigErk.columns[3]][i]
-        while pre.startswith(' '):
-            pre = pre[1:]
-        pos = EigErk[EigErk.columns[2]][i] 
-        if not any(members['Nachname']+', '+members['Vorname']==pos+', '+pre):
-            print('###EigErk:', pos+', '+pre, 'not found in "members"!!')
-        else:
-            # match participant via Nachname and Vorname (unfortunately no Matrikelnummer available in regarded document)
-            j = members.index[members['Nachname']+', '+members['Vorname']==pos+', '+pre]
-            # j = members.index[members['Benutzername']==EigErk['Benutzername'][i]]
-            members.loc[j, 'Eigenstaendigkeitserklaerung'] = EigErk['Eigenstaendigkeitserklaerung'][i]
-    # Filter: keep only members with valid 'Eigenstaendigkeitserklaerung'
+    if doo_dir is not None:
+        EigErk = pd.read_excel(doo_dir, header=5, sheet_name='Tabelle1')
+        EigErk['Eigenstaendigkeitserklaerung'] = EigErk['Bewertung'].notna()
+        # work-around to get declaration of originality of every participant
+        for i in range(len(EigErk)):
+            pre = EigErk[EigErk.columns[3]][i]
+            while pre.startswith(' '):
+                pre = pre[1:]
+            pos = EigErk[EigErk.columns[2]][i] 
+            if not any(members['Nachname']+', '+members['Vorname']==pos+', '+pre):
+                print('###EigErk:', pos+', '+pre, 'not found in "members"!!')
+            else:
+                # match participant via Nachname and Vorname (unfortunately no Matrikelnummer available in regarded document)
+                j = members.index[members['Nachname']+', '+members['Vorname']==pos+', '+pre]
+                # j = members.index[members['Benutzername']==EigErk['Benutzername'][i]]
+                members.loc[j, 'Eigenstaendigkeitserklaerung'] = EigErk['Eigenstaendigkeitserklaerung'][i]
+    else: # assume all Eigenständigkeitserklärungen valid
+        members['Eigenstaendigkeitserklaerung'] = members['Identitaetsnachweis']
+    # Filter: keep only members with valid 'Eigenstaendigkeitserklaerung'      
     members['Eigenstaendigkeitserklaerung'] = members['Eigenstaendigkeitserklaerung'].fillna(False)
     
     return members
@@ -867,10 +855,6 @@ def evaluate_praktika(members: pd.DataFrame,
     tests_p_bonus: int
         number of bonus tests to get 1 bonus point
     """        
-    """
-    TODO: apply adjustments for praktikum evaluation:
-        - write new praktikum in old praktikum
-    """
     pra_filter = [col for col in d_course.columns.get_level_values(0) if col.startswith('V')]
 # 1.a Evaluate Praktika tests
     if pra_tests is not None:
@@ -912,12 +896,14 @@ def evaluate_praktika(members: pd.DataFrame,
         new_pra_list = new_pra_list[~new_pra_list.isnull().all(axis=1)]
         new_pra_list = new_pra_list.replace(['BE', 'NB'], [1, 0]).fillna(0)
         new_pra_list['Matrikelnummer'] = members.loc[new_pra_list.index, 'Matrikelnummer']
+        print(new_pra_list['Matrikelnummer'].astype(int).sort_values().values)
         new_pra_list['Semester']= semester_name
         new_pra_list['Summe'] = new_pra_list[['V1', 'V2', 'V3']].sum(axis=1)
         new_pra_list = new_pra_list[['Semester', 'Matrikelnummer', 'V1', 'V2', 'V3', 'Summe']]
         new_pra_list = new_pra_list.append(pra_prev, ignore_index=True)
         new_pra_list = new_pra_list.sort_values(by = ['Semester', 'Matrikelnummer'],ascending=[False, True])
         new_pra_list.to_excel(semester_name+'_ETG_Pra_Bonus.xlsx', index=False)
+        print('##### Praktikum Export done! #####')
 # 1.c Get passed Experiments in previous Semesters
     pra = ['V1','V2','V3'] 
     # iterate every member
