@@ -6,11 +6,20 @@ import pandas as pd
 import numpy as np
 import ilias_evaluator as ev
 
+# important entries
+mem_dir = '2022s_ETG_Members/'
+ilias_mem = pd.read_excel(mem_dir+'2022_07_12_09-511657612294_member_export_41962.xlsx', 
+                          sheet_name='Mitglieder')
+pra_dir = '2022s_ETG_Praktikum/'
+# read bonus list from old Praktika 
+old_praktika = pd.read_excel(pra_dir+'2021w_ETG_Pra_Bonus.xlsx', 
+                            sheet_name='Sheet1')
+export_prefix = '2022s_ETG_'
+
 # General constants
 result_identifier = '_results'
 ff_pool_identifier = 'Formelfrage'
 sc_pool_identifier = 'SingleChoice'
-export_prefix = '2021w_ETG_'
 name_marker = 'Ergebnisse von Testdurchlauf '   # 'Ergebnisse von Testdurchlauf 1 für '
 run_marker = 'dummy_text'   # run marker currently not used
 tasks = ['Formelfrage', 'Single Choice', 'Lückentextfrage', 'Hotspot/Imagemap', 'Freitext eingeben']
@@ -20,24 +29,19 @@ res_marker = '$r'
 marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft] 
 
 # Specific constants for members
-mem_dir = '2021w_ETG_Members/'
 psso_import = []
-ilias_mem = pd.read_excel(mem_dir+'2022_01_20_13-351642682110_member_export_2520764.xlsx', 
-                          sheet_name='Mitglieder')
-ilias_mem = ilias_mem.loc[ilias_mem['Matrikelnummer'].dropna().index]
+ilias_mem = ilias_mem.loc[ilias_mem['Matrikelnummer'].dropna().index].reset_index(drop=True)
 # Specific constants for Praktikum
 # What Notes by what total percentage points?
 pra_scheme = pd.Series(data= [0,    50], 
                        index=['NB','BE'])
 pra_experiment = [1, 2, 3]
-pra_dir = '2022w_ETG_Praktikum/'
+
 
 # test data
 [pra_ilias_result, pra_pool_ff, pra_pool_sc] = ev.get_excel_files(pra_experiment, pra_dir)
 
-# read bonus list from old Praktika 
-old_praktika = pd.read_excel(pra_dir+'2021s_Bonuspunkte_Praktika.xlsx', 
-                            sheet_name='Sheet1')
+
 print('Praktika import OK')
 
 # read psso member list
@@ -96,5 +100,6 @@ print("evaluate pra bonus...")
 [members, course_data]= ev.evaluate_praktika(members, pra_prev=old_praktika, 
                                              pra_tests=praktikum, 
                                              d_course=course_data, 
-                                             semester_name = '2021w')
+                                             tests_p_bonus = 1,
+                                             semester_name = export_prefix[0:5])
 print("Done")
