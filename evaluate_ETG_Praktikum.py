@@ -6,15 +6,24 @@ import pandas as pd
 import numpy as np
 import ilias_evaluator as ev
 
-# important entries
+### important entries
+
 mem_dir = '2022s_ETG_Members/'
 ilias_mem = pd.read_excel(mem_dir+'2022_07_12_09-511657612294_member_export_41962.xlsx', 
                           sheet_name='Mitglieder')
 pra_dir = '2022s_ETG_Praktikum/'
+# Specific constants for Praktikum
+# What Notes by what total percentage points?
+pra_scheme = pd.Series(data= [0,    50], 
+                       index=['NB','BE'])
+pra_experiment = [1, 2, 3]
 # read bonus list from old Praktika 
 old_praktika = pd.read_excel(pra_dir+'2021w_ETG_Pra_Bonus.xlsx', 
                             sheet_name='Sheet1')
+print('Praktika import OK')
 export_prefix = '2022s_ETG_'
+
+###
 
 # General constants
 result_identifier = '_results'
@@ -29,23 +38,11 @@ res_marker = '$r'
 marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft] 
 
 # Specific constants for members
-psso_import = []
 ilias_mem = ilias_mem.loc[ilias_mem['Matrikelnummer'].dropna().index].reset_index(drop=True)
-# Specific constants for Praktikum
-# What Notes by what total percentage points?
-pra_scheme = pd.Series(data= [0,    50], 
-                       index=['NB','BE'])
-pra_experiment = [1, 2, 3]
-
 
 # test data
 [pra_ilias_result, pra_pool_ff, pra_pool_sc] = ev.get_excel_files(pra_experiment, pra_dir)
 
-
-print('Praktika import OK')
-
-# read psso member list
-#psso_members_origin = ev.import_psso_members(psso_import)
 members = ilias_mem
 members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
 members['Name_'] = np.nan       # members['Name'].str.replace("'","")
@@ -66,9 +63,6 @@ for i in range(len(members)):
     members.loc[i, 'Name_'] = nachname + ', ' + vorname
 # get Benutzername and Email from ilias_mem
     mtknr_sel = ilias_mem['Matrikelnummer'].astype(int)==members['Matrikelnummer'][i]
-    if sum(mtknr_sel)==0: 
-        # psso member is not an ilias member
-        continue
     members.loc[i,'Benutzername'] = ilias_mem['Benutzername'][mtknr_sel].values.item()
     members.loc[i,'E-Mail'] = ilias_mem['E-Mail'][mtknr_sel].values.item()
 ## remove ' from Names to get ILIAS equivalent names
