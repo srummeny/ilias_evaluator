@@ -9,17 +9,19 @@ import glob
 import matplotlib.pyplot as plt
 
 ### Important entries
-
-scheme = pd.Series(data= [0,    50,   55,   60,   65,   70,   75,   80,   85,   90,   95],
-                   index=["5,0","4,0","3,7","3,3","3,0","2,7","2,3","2,0","1,7","1,3","1,0"]) 
-considered_tests = ['Kohorte A']    #, 'Kohorte B', 'Kohorte C', 'Kohorte D', 'Kohorte E', 'Kohorte F']
 import_dir = '2022s_ETG_Open_Book_Probeprüfung/'
-export_prefix = '2022s_ETG_Open_Book_Probeprüfung_'
 # read psso member list
 psso_members = pd.read_excel('2022s_ETG_Members/psso-2022-06-21/20220712_Kohortenaufteilung_ETG_full_SR.xlsx', 
                              sheet_name='Sheet1')
+print('PSSO member import OK')
 import_bonus = pd.read_excel('2022s_ETG_Bonuspunkte_pub.xlsx', header=5, sheet_name='Sheet1')
+print('Bonus import of members OK')
 identity_control_data = '2022s_ETG_Members/22s_Probepruefung_Anwesenheit_Raumaufteilung_ed_SR.xls'
+scheme = pd.Series(data= [0,    50,   55,   60,   65,   70,   75,   80,   85,   90,   95],
+                   index=["5,0","4,0","3,7","3,3","3,0","2,7","2,3","2,0","1,7","1,3","1,0"]) 
+considered_tests = ['Kohorte A']    #, 'Kohorte B', 'Kohorte C', 'Kohorte D', 'Kohorte E', 'Kohorte F']
+
+export_prefix = '2022s_ETG_Open_Book_Probeprüfung_'
 title1='Ergebnisse der Open-Book-Probeprüfung vom 28.06.2022, Elektrotechnische Grundlagen (ETG), SoSe 22'
 
 ###
@@ -64,12 +66,8 @@ members['Identitaetsnachweis'] = np.nan
 members['Eigenstaendigkeitserklaerung'] = np.nan
 members['Note'] = np.nan
 
-print('PSSO member import OK')
-
 bonus_mrg = pd.merge(members['Matrikelnummer'], import_bonus, how='left', on='Matrikelnummer') 
 members['Bonus_Pkt'] = bonus_mrg['Summe']
-
-print('Bonus import of members OK')
 
 # find all import data and pools in directory
 for j in considered_tests:
