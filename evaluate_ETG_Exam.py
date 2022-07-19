@@ -6,18 +6,26 @@ import ilias_evaluator as ev
 import pandas as pd
 import numpy as np
 import glob
+import matplotlib.pyplot as plt
 
-version = '2.0, 29.06.2021'
-print ("Tool zur externen Bewertung von ILIAS Formelfragen-Tests")
-print ("Version", version)
-print ("(c) by Eberhard Waffenschmidt, TH-Köln")
-print ("edited by Silvan Rummeny, TH-Köln")
+### Important entries
 
-# What Notes by what total percentage points (referenced without Bonus)? 
 scheme = pd.Series(data= [0,    50,   55,   60,   65,   70,   75,   80,   85,   90,   95],
                    index=["5,0","4,0","3,7","3,3","3,0","2,7","2,3","2,0","1,7","1,3","1,0"]) 
-considered_tests = ['Kohorte A', 'Kohorte B', 'Kohorte C', 'Kohorte D', 'Kohorte E', 'Kohorte F']
-import_dir = '2021w_ETG_Open_Book_Prüfung/'
+considered_tests = ['Kohorte A']    #, 'Kohorte B', 'Kohorte C', 'Kohorte D', 'Kohorte E', 'Kohorte F']
+import_dir = '2022s_ETG_Open_Book_Probeprüfung/'
+export_prefix = '2022s_ETG_Open_Book_Probeprüfung_'
+# read psso member list
+psso_members = pd.read_excel('2022s_ETG_Members/psso-2022-06-21/20220712_Kohortenaufteilung_ETG_full_SR.xlsx', 
+                             sheet_name='Sheet1')
+import_bonus = pd.read_excel('2022s_ETG_Bonuspunkte_pub.xlsx', header=5, sheet_name='Sheet1')
+identity_control_data = '2022s_ETG_Members/22s_Probepruefung_Anwesenheit_Raumaufteilung_ed_SR.xls'
+title1='Ergebnisse der Open-Book-Probeprüfung vom 28.06.2022, Elektrotechnische Grundlagen (ETG), SoSe 22'
+
+###
+
+# What Notes by what total percentage points (referenced without Bonus)? 
+
 result_file_identifier = '_results'
 pool_FF_file_identifier = 'Formelfrage'
 pool_SC_file_identifier = 'SingleChoice'
@@ -25,7 +33,6 @@ result_import = []
 import_pool_FF = []
 import_pool_SC = []
 
-export_prefix = '2021w_ETG_Open_Book_Prüfung_'
 Filename_Export = export_prefix+'exp_Ergebnisse.xlsx'
 Filename_Export_public = export_prefix+'exp_Ergebnisse_pub.xlsx'
 Filename_Export_PSSO = export_prefix+'exp_Ergebnissse_psso.xlsx'
@@ -41,10 +48,6 @@ res_marker = '$r'
 marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft] 
 
 # Specific constants for members
-# read psso member list
-
-psso_members = pd.read_excel('2021w_ETG_Members/psso-2022-02-24/20220224_Kohortenaufteilung_ETG_full_SR.xlsx', 
-                             sheet_name='Sheet1')
 members = psso_members
 members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
 members['Benutzername'] = np.nan
@@ -63,7 +66,6 @@ members['Note'] = np.nan
 
 print('PSSO member import OK')
 
-import_bonus = pd.read_excel('2021w_ETG_Bonuspunkte_pub.xlsx', header=5, sheet_name='Sheet1')
 bonus_mrg = pd.merge(members['Matrikelnummer'], import_bonus, how='left', on='Matrikelnummer') 
 members['Bonus_Pkt'] = bonus_mrg['Summe']
 
@@ -100,7 +102,7 @@ for c in range(len(considered_tests)):
     errorlog = errorlog.append(exam[c].errorlog)
 
 print("evaluate exam...")
-members = ev.get_originality_proof(members)
+members = ev.get_originality_proof(members, id_dir = identity_control_data )
 [members, all_entries] = ev.evaluate_exam(members, exam, scheme, max_pts=41) 
 sel = members['Exam_Pkt'].dropna()!=members['ILIAS_Pkt'].dropna()
 df = members.loc[sel[sel].index]
@@ -145,7 +147,7 @@ exam_export = all_entries.copy()
 exam_export.columns = exam_export.columns.map('_'.join)
 exam_export = exam_export[~exam_export['A1_Title'].isnull()]
 idx = exam_export.index
-review = pd.concat([members.loc[idx,['Matrikelnummer','Name']], exam_export, members.loc[idx,['Bonus_Pkt','Ges_Pkt','% über Bestehensgrenze','Identitaetsnachweis','Eigenstaendigkeitserklaerung','Note']]],axis=1)
+review = pd.concat([members.loc[idx,['Matrikelnummer','Name']], exam_export, members.loc[idx,['Bonus_Pkt','Ges_Pkt','% über Bestehensgrenze','Identitaetsnachweis','Note']]],axis=1)
 for i in range(42):
     review = review.drop(columns=['A'+str(i+1)+'_ID',
                                   'A'+str(i+1)+'_Type', 
@@ -186,7 +188,7 @@ ax_pkt_i = writer.book.add_format({'bold': True, 'fg_color':'#ffdbb6', 'border':
 footer = writer.book.add_format({'fg_color':'#ffff00', 'border': 1, 'align':'left'})
 footer_i = writer.book.add_format({'bold': True, 'fg_color':'#ffff00', 'border': 1, 'align':'left'})
 note = writer.book.add_format({'bold': True, 'fg_color':'#81d41a', 'border': 1, 'align':'left'})                         
-writer.sheets['Sheet1'].write_string(0,0,'Ergebnisse der Online-Open-Book-Prüfung vom 23.02.2022, Elektrotechnische Grundlagen (ETG), WiSe 21/22')
+writer.sheets['Sheet1'].write_string(0,0,title1)
 writer.sheets['Sheet1'].set_row(0,cell_format=title)
 writer.sheets['Sheet1'].write_string(1,0,'A#_Student ist ihre getaetigte Antwort', subtitle)
 writer.sheets['Sheet1'].set_row(1,cell_format=subtitle)
@@ -199,7 +201,7 @@ writer.sheets['Sheet1'].set_row(4,cell_format=remark)
 
 # set columns width in pxl
 
-writer.sheets['Sheet1'].set_column(1, len(exp_review_public.columns),12)
+writer.sheets['Sheet1'].set_column(1, len(exp_review_public.columns),11)
 writer.sheets['Sheet1'].set_row(5,cell_format=matnr)
 for i in range(42):
 #    writer.sheets['Sheet1'].write_blank(0, 6+i*3, cell_format=ax_stud.set_bold())
@@ -214,13 +216,13 @@ writer.sheets['Sheet1'].write_string(9+41*3,0, exp_review_public['index'][4+41*3
 writer.sheets['Sheet1'].write_string(10+41*3,0, exp_review_public['index'][5+41*3], cell_format=footer_i)
 writer.sheets['Sheet1'].write_string(11+41*3,0, exp_review_public['index'][6+41*3], cell_format=footer_i)
 writer.sheets['Sheet1'].write_string(12+41*3,0, exp_review_public['index'][7+41*3], cell_format=footer_i)
-writer.sheets['Sheet1'].write_string(13+41*3,0, exp_review_public['index'][8+41*3], cell_format=footer_i)
+#writer.sheets['Sheet1'].write_string(13+41*3,0, exp_review_public['index'][8+41*3], cell_format=footer_i)
 writer.sheets['Sheet1'].set_row(9+41*3,cell_format=footer)
 writer.sheets['Sheet1'].set_row(10+41*3,cell_format=footer)
 writer.sheets['Sheet1'].set_row(11+41*3,cell_format=footer)
 writer.sheets['Sheet1'].set_row(12+41*3,cell_format=footer)
-writer.sheets['Sheet1'].set_row(13+41*3,cell_format=footer)
-writer.sheets['Sheet1'].set_row(14+41*3,cell_format=note)
+# writer.sheets['Sheet1'].set_row(13+41*3,cell_format=footer)
+writer.sheets['Sheet1'].set_row(13+41*3,cell_format=note)
 writer.sheets['Sheet1'].repeat_rows(5)
 writer.save()
 
@@ -231,6 +233,17 @@ a = members['Exam_Pkt'].value_counts().sort_index()
 b = members['ILIAS_Pkt'].value_counts().sort_index()
 ab = pd.merge(a, b, how='outer', on=a.index)
 ab[['ILIAS_Pkt','Exam_Pkt']].plot.bar()
+
+### Plot Ges_Pkt distribution
+df=pd.DataFrame(index=np.linspace(0,41,num=42))
+df['Ges_Pkt'] = members['Ges_Pkt'].value_counts().sort_index()
+maxv = members['Ges_Pkt'].value_counts().max()
+fig = plt.figure()
+ax = fig.add_axes()
+df.plot.bar(ax=ax)
+plt.fill([-0.5, -0.5,       scheme['4,0']/100*41, scheme['4,0']/100*41], 
+         [0,    maxv+0.5,   maxv+0.5,             0], 
+         'r', alpha=0.25)
 
 #### Check number of Taxonomies in Exam #####
 tax = []
