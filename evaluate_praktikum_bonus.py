@@ -9,11 +9,22 @@ import pandas as pd
 import numpy as np
 import ilias_evaluator as ev
 
+### Important entries
+
+export_prefix = '2022s_ETG_'
+mem_dir = '2022s_ETG_Members/'
+ilias_mem = pd.read_excel(mem_dir+'2022_07_14_11-451657718216_member_export_2781317.xlsx', 
+                          sheet_name='Mitglieder')
+pra_dir = '2022s_ETG_Praktikum/'
+# read bonus list from old Praktika 
+old_praktika = pd.read_excel(pra_dir+'2021w_ETG_Pra_Bonus.xlsx', 
+                            sheet_name='Sheet1')
+
+###
 # General constants
 result_identifier = '_results'
 ff_pool_identifier = 'Formelfrage'
 sc_pool_identifier = 'SingleChoice'
-export_prefix = '2021w_ETG_'
 Filename_Export_Praktikum_Bonus = export_prefix+'Pra_Bonus.xlsx'
 name_marker = 'Ergebnisse von Testdurchlauf '   # 'Ergebnisse von Testdurchlauf 1 für '
 run_marker = 'dummy_text'   # run marker currently not used
@@ -24,27 +35,21 @@ res_marker = '$r'
 marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft] 
 
 # Specific constants for members
-mem_dir = '2022w_ETG_Members/'
 psso_import = []
-ilias_mem = pd.read_excel(mem_dir+'2021_06_28_10-011624867289_member_export_2341446.xlsx', 
-                          sheet_name='Mitglieder')
-ilias_mem = ilias_mem.loc[ilias_mem['Matrikelnummer'].dropna().index]
+ilias_mem = ilias_mem.loc[ilias_mem['Matrikelnummer'].dropna().index].reset_index(drop=False)
 # Specific constants for Praktikum
 # What Notes by what total percentage points?
 pra_scheme = pd.Series(data= [0,    50], 
                        index=['NB','BE'])
 pra_experiment = [1, 2, 3]
-pra_dir = '2021w_ETG_Praktikum/'
 
 # test data
 [pra_ilias_result, pra_pool_ff, pra_pool_sc] = ev.get_excel_files(pra_experiment, pra_dir)
 
-# read bonus list from old Praktika 
-old_praktika = pd.read_excel(pra_dir+'2021s_Bonuspunkte_Praktika.xlsx', 
-                            sheet_name='Tabelle1')
+
 print('Praktika import OK')
 # read psso member list
-psso_members_origin = ev.import_psso_members(psso_import)
+# psso_members_origin = ev.import_psso_members(psso_import)
 members = ilias_mem
 members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
 members['Name_'] = np.nan       # members['Name'].str.replace("'","")
@@ -98,19 +103,6 @@ for pra in range(len(pra_experiment)):
 print("evaluate pra bonus...")
 [members, course_data]= ev.evaluate_praktika(members, pra_prev=old_praktika, 
                                              pra_tests=praktikum, 
-                                             d_course=course_data)
-
-#####
-old_praktika = old_praktika.drop(columns=['Unnamed: 6', 'Unnamed: 7'])
-pra_2021s = course_data[course_data[['V1','V2','V3']].columns[[1,3,5]]]
-pra_2021s = pra_2021s.rename(columns={('V1','Note'):'V1', ('V2', 'Note'):'V2', ('V3','Note'):'V3'})
-# filter rows with all nan
-pra_2021s = pra_2021s[~pra_2021s.isnull().all(axis=1)]
-pra_2021s = pra_2021s.replace(['BE', 'NB'], [1, 0]).fillna(0)
-pra_2021s = pra_2021s.merge(members.loc[pra_2021s.index, 'Matrikelnummer'], left_index=True, right_index=True)
-pra_2021s['Semester']='2021w'
-pra_2021s['Summe'] = pra_2021s[['V1', 'V2', 'V3']].sum(axis=1)
-pra_2021s = pra_2021s[['Semester', 'Matrikelnummer', 'V1', 'V2', 'V3', 'Summe']]
-pra = old_praktika.append(pra_2021s, ignore_index=True)
-pra = pra.sort_values(by = ['Semester', 'Matrikelnummer'],ascending=[False, True])
-pra.to_excel(Filename_Export_Praktikum_Bonus, index=False)
+                                             d_course=course_data,
+                                             tests_p_bonus = 1,
+                                             semester_name=export_prefix[0:5])
