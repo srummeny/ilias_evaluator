@@ -9,8 +9,9 @@ import ilias_evaluator as ev
 ### important entries
 
 mem_dir = '2022s_ETG_Members/'
-ilias_mem = pd.read_excel(mem_dir+'2022_07_12_09-511657612294_member_export_41962.xlsx', 
+ilias_mem = pd.read_excel(mem_dir+'2022_07_21_09-291658388566_member_export_2781317.xlsx', 
                           sheet_name='Mitglieder')
+print('ILIAS member import OK')
 pra_dir = '2022s_ETG_Praktikum/'
 # Specific constants for Praktikum
 # What Notes by what total percentage points?
@@ -67,7 +68,6 @@ for i in range(len(members)):
     members.loc[i,'E-Mail'] = ilias_mem['E-Mail'][mtknr_sel].values.item()
 ## remove ' from Names to get ILIAS equivalent names
 members['Name_'] = members['Name_'].str.replace("'", "")
-print('PSSO member import OK')
 
 i_lev1 = []
 i_lev2 = []
