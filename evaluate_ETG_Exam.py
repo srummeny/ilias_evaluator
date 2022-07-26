@@ -115,8 +115,8 @@ print ('export results as excel...')
 members[['Identitaetsnachweis','Eigenstaendigkeitserklaerung']] = members[['Identitaetsnachweis','Eigenstaendigkeitserklaerung']].replace([True, False],['Ja','Nein'])
 # sort members by Matrikelnummer
 members = members.sort_values(by=['Matrikelnummer'])
-# consider only members with Note
-members = members.loc[members['Note'].dropna().index]
+
+members['bewertung']=members['Note'].fillna('PNE')
 
 ######### Export for PSSO ############
 exp_psso = members[members.columns[0:13]].rename(columns={'Matrikelnummer':'mtknr',
@@ -135,6 +135,8 @@ exp_detailed = members[cols_detailed].rename(columns={'stg':'Studiengang',
                                                       'bewertung':'Bewertung'})  
 exp_detailed.to_excel(Filename_Export, index=False)
 
+# consider only members with Note
+members = members.loc[members['Note'].dropna().index]
 ######## Export for participants (short, anonymous) ############
 cols_public = ['Matrikelnummer', 'Note']
 exp_public = members[cols_public]
@@ -225,7 +227,7 @@ writer.sheets['Sheet1'].repeat_rows(5)
 writer.save()
 
 # TODO: export errorlog and difflog
-
+#%%
 ### Plot comparison of Exam_Pkt and ILIAS_Pkt #####
 a = members['Exam_Pkt'].value_counts().sort_index()
 b = members['ILIAS_Pkt'].value_counts().sort_index()
@@ -236,8 +238,7 @@ ab[['ILIAS_Pkt','Exam_Pkt']].plot.bar()
 df=pd.DataFrame(index=np.linspace(0,41,num=42))
 df['Ges_Pkt'] = members['Ges_Pkt'].value_counts().sort_index()
 maxv = members['Ges_Pkt'].value_counts().max()
-fig = plt.figure()
-ax = fig.add_axes()
+fig, ax = plt.subplots()
 df.plot.bar(ax=ax)
 plt.fill([-0.5, -0.5,       scheme['4,0']/100*41, scheme['4,0']/100*41], 
          [0,    maxv+0.5,   maxv+0.5,             0], 
