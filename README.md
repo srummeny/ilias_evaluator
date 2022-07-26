@@ -21,6 +21,7 @@ This tool consists of:
         - get_originality_proof
 
 This tool is capable of: 
+
     - read and process ILIAS test results
     - evaluate intermediate tests of a course regarding bonus points
     - evaluate exam of a course
@@ -29,8 +30,10 @@ This tool is capable of:
     - export detailed results (e.g. for exam review for students)
 
 This tool is limited as follows: 
+
     - active evaluation only for task types: Formelfrage, Single Choice
     - passive ILIAS result import only for tasks which are in ILIAS import data
 TODO: 
+
     - feasible extension for active evaluation for task types: Multiple Choice, 
         Freitextaufgabe
