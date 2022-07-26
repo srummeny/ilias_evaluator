@@ -18,7 +18,7 @@ zt_dir = '2022s_ETG_Zwischentests/'
 pra = pd.read_excel('2022s_ETG_Pra_Bonus.xlsx',
                     sheet_name='Sheet1')
 print('Praktika import OK')
-first_print_line = 'Bonuspunkte Elektrische Energietechnik (ETG), SoSe 22'      # WiSe 21/22
+first_print_line = 'Bonuspunkte Elektrotechnische Grundlagen (ETG), SoSe 22'      # WiSe 21/22
 # Specific constants for intermediate tests (Zwischentests=zt)
 # What Notes by what total percentage points?
 zt_scheme = pd.Series(data= [0,    70], 
@@ -47,6 +47,9 @@ marker = [run_marker, tasks, var_marker, res_marker, res_marker_ft]
 members = psso_members
 members['Matrikelnummer'] = pd.to_numeric(members['Matrikelnummer'])
 members['Benutzername'] = np.nan
+members['bearbeitete Fragen'] = np.nan
+members['Bearbeitungsdauer'] = np.nan
+members['Startzeit'] = np.nan
 members['E-Mail'] = np.nan
 members['Bonus_ZT'] = np.nan
 members['Bonus_Pra'] = np.nan
