@@ -2,9 +2,10 @@
 ILIAS Evaluator: A tool for evaluating and post-correction of tests and exams 
 done in the ILIAS or ILIAS E-Assessment System
 
-The tool is based on 
+The tool is created by Silvan Rummeny. 
+A First approach of post-correction of ILIAS tests is done in 
 https://github.com/P4ckP4ck/ILIAS_KlausurAuswertung/Bewerte ILIAS-Testergebnisse V1_5.py
-first created by Eberhard Waffenschmidt, TH Köln 
+created by Eberhard Waffenschmidt, TH Köln. 
 
 For export of the tests and exams done in ILIAS or ILIAS E-Assessment System 
 please use the tool
@@ -13,11 +14,16 @@ https://github.com/TPanteleit/ILIAS---Test-Generator
 This tool consists of: 
     - classes:
         - Test
-    - general methods:
+    - general methods (in alphabetical order):
+        - drop_None
         - eval_ILIAS
-        - import_psso_members
         - evaluate_bonus
         - evaluate_exam
+        - evaluate_intermediate_tests
+        - evaluate_praktika
+        - import_psso_members
+        - get_excel_files
+        - get_originality_proof
 
 This tool is capable of: 
     - read and process ILIAS test results
@@ -26,9 +32,6 @@ This tool is capable of:
     - tasks with multiple answers can be considered in evaluation
     - determine course note for each participant
     - export detailed results (e.g. for exam review for students)
-TODO:
-    - find better solution for processing bonus by bonus tests and Praktikum
-    - complete automated statistical analysis of tests or an exam 
 
 This tool is limited as follows: 
     - active evaluation only for task types: Formelfrage, Single Choice
@@ -38,7 +41,7 @@ TODO:
         Freitextaufgabe
 @author: Silvan Rummeny"""
 
-__version__ = '2.2'
+__version__ = '2.3'
 __author__ = 'srummeny'
 
 import pandas as pd
@@ -182,6 +185,9 @@ class Test:
                 except ValueError: # Exception for participants without any Matrikelnummer
                     matnr = np.nan
                     p_sel = [False]
+                except KeyError:
+                    print('### KEY ERROR: Im Evaluationsdaten-Export vom ILIAS-System fehlt die Spalte mit der Matrikelnummer der Teilnehmer! ###')
+                    break
                 # get member index in self.members 
                 if any(p_sel):
                     i_mem = self.members.index[p_sel].values.item()
@@ -190,8 +196,8 @@ class Test:
                     continue
             # 4.a Create self.row_finder of valid results according to ILIAS
                 row = self.r_ilias['Name'].dropna().index[name_sel].values.item()
-                self.row_finder.loc[p, 'i_mem'] = i_mem
-                self.row_finder.loc[p, 'row_init'] = row
+                self.row_finder['i_mem'][p] = i_mem
+                self.row_finder['row_init'][p] = row
                 # find number of valid run in ILIAS_results
                 i_val = self.r_ilias['Bewerteter Durchlauf'][row].astype(int)
                 
@@ -201,9 +207,9 @@ class Test:
                     j=0
                     while float(i_val) != i_run[j]:
                         j += 1
-                    self.row_finder.loc[p, 'row_valid'] = row + j
+                    self.row_finder['row_valid'][p] = row + j
                 else:  # first run == the valid run
-                    self.row_finder.loc[p, 'row_valid'] = row
+                    self.row_finder['row_valid'][p] = row
             # (re-)set i_run and i_task 
             i_run = 0
             i_task = 0
@@ -244,8 +250,8 @@ class Test:
                         continue
                 # 4.b Create self.row_finder of valid results according to ILIAS
                     row = self.r_ilias['Name'].dropna().index[name_sel].values.item()
-                    self.row_finder.loc[j, 'i_mem'] = i_mem
-                    self.row_finder.loc[j, 'row_init'] = row
+                    self.row_finder['i_mem'][j] = i_mem
+                    self.row_finder['row_init'][j] = row
                     # find number of valid run in ILIAS_results
                     i_val = self.r_ilias['Bewerteter Durchlauf'][row]
                     if i_val > 1:  # only if first run =! valid run
@@ -254,16 +260,16 @@ class Test:
                         k=0
                         while float(i_val) != i_run[k]:
                             k += 1
-                        self.row_finder.loc[j, 'row_valid'] = row + k
+                        self.row_finder['row_valid'][j] = row + k
                     else:  # first run == the valid run
-                        self.row_finder.loc[j, 'row_valid'] = row
+                        self.row_finder['row_valid'][j] = row
                 if skip:
                     continue
                 else:
                     """
                     TODO: consider task IDs
                     # id_title = title[0:title.find(" ")]      # FragenID
-                    # self.ent.loc[i_mem, (a_t, 'ID')]= id_title
+                    # self.ent[(a_t, 'ID')][i_mem]= id_title
                     """
                     # is there a new run?
                     if txt.startswith(run_marker):
@@ -274,10 +280,10 @@ class Test:
                         i_task += 1
                         a_t = 'A' + str(i_task)
                         title = self.d_ilias[p]['values'][i]
-                        self.ent.loc[i_mem, (a_t, 'Type')] = txt
-                        self.ent.loc[i_mem, (a_t, 'Title')] = title
-                        self.ent.loc[i_mem, (a_t, 'Var')] = [None] * 15
-                        self.ent.loc[i_mem, (a_t, 'R')] = [None] * 10
+                        self.ent[(a_t, 'Type')][i_mem] = txt
+                        self.ent[(a_t, 'Title')][i_mem] = title
+                        self.ent[(a_t, 'Var')][i_mem] = [None] * 15
+                        self.ent[(a_t, 'R')][i_mem] = [None] * 10
                         self.R_sc = [[],[]]
                     # is there a new variable or result?
                     elif (txt.startswith(var_marker) or
@@ -287,18 +293,18 @@ class Test:
                             if txt.startswith(var_marker):
                                 var = self.d_ilias[p]['values'][i]
                                 v_i = int(txt.replace(var_marker, '')) - 1
-                                self.ent.loc[i_mem, (a_t, 'Var')][v_i] = var
+                                self.ent[(a_t, 'Var')][i_mem][v_i] = var
                             elif (txt.startswith(res_marker) or
                                   txt.startswith(res_marker_ft)):
                                 r = self.d_ilias[p]['values'][i]
                                 r_i = int(txt.replace(res_marker, '')) - 1
-                                self.ent.loc[i_mem, (a_t, 'R')][r_i] = r
+                                self.ent[(a_t, 'R')][i_mem][r_i] = r
                     elif txt.startswith('Ergebnisse von Testdurchlauf'):
                         continue
                     else:
                         # catch selected Single-Choice-Answeres (no marker used)
                         #a_t = 'A' + str(i_task)
-                        self.ent.loc[i_mem, (a_t, 'R')] = [[],[]]
+                        self.ent[(a_t, 'R')][i_mem] = [[],[]]
                         pts = self.d_ilias[p]['values'][i]
                         if type(pts) == str: 
                             if all(chr.isdigit() for chr in pts):
@@ -307,7 +313,7 @@ class Test:
                             pts = int(pts)
                         self.R_sc[0].append(pts)
                         self.R_sc[1].append(txt) 
-                        self.ent.loc[i_mem, (a_t, 'R')] = self.R_sc
+                        self.ent[(a_t, 'R')][i_mem] = self.R_sc
 
     def process_pools(self):
         """ process task pools, evaluate results and returns self.ent with 
@@ -334,10 +340,10 @@ class Test:
             row_i = self.row_finder['row_init'][sel_m].values.item()
             # get ilias benutzername from r_ilias if it is NaN
             if self.members['Benutzername'].isna()[m]:
-                self.members.loc[m,'Benutzername'] = self.r_ilias.loc[row_r,'Benutzername']
-                self.members.loc[m,'bearbeitete Fragen'] = self.r_ilias.loc[row_r,'Bereits bearbeitete Fragen']
-                self.members.loc[m,'Bearbeitungsdauer'] = self.r_ilias.loc[row_r,'Bearbeitungsdauer']
-                self.members.loc[m,'Startzeit'] = self.r_ilias.loc[row_r,'Erster Aufruf']
+                self.members.loc[m, 'Benutzername'] = self.r_ilias['Benutzername'][row_r]
+                self.members.loc[m, 'bearbeitete Fragen'] = self.r_ilias['Bereits bearbeitete Fragen'][row_r]
+                self.members.loc[m, 'Bearbeitungsdauer'] = self.r_ilias['Bearbeitungsdauer'][row_r]
+                self.members.loc[m, 'Startzeit'] = self.r_ilias['Erster Aufruf'][row_r]
             # iterate every tasks
             for t in range(self.ent.columns.levshape[0]):
                 pkt = 0  # set task points to zero (default)
@@ -464,14 +470,14 @@ class Test:
                                                 print('used exception of 05.3.723 for participant', str(m), 'task', str(t+1))
                         else:  # no result or vars available
                             continue
-                    if len(self.ent.loc[m, (a_t, 'Pkt')]) == 0:
-                        self.ent.loc[m, (a_t, 'Pkt')] = pkt
+                    if len(self.ent[(a_t, 'Pkt')][m]) == 0:
+                        self.ent[(a_t, 'Pkt')][m] = pkt
                     else:
-                        self.ent.loc[m, (a_t, 'Pkt')] += pkt
+                        self.ent[(a_t, 'Pkt')][m] += pkt
                     # if there are ILIAS_results for single task available
                     if any(sel_c):
                         # get Points achieved according to ILIAS
-                        self.ent.loc[m, (a_t, 'Pkt_ILIAS')] = self.r_ilias.iloc[row_r, sel_c].values.item()
+                        self.ent[(a_t, 'Pkt_ILIAS')][m] = self.r_ilias.iloc[row_r, sel_c].values.item()
                         pkt_ilias = self.r_ilias.iloc[row_r, sel_c].values.item()
                         if np.isnan(pkt_ilias):
                             pkt_ilias = 0
@@ -488,20 +494,20 @@ class Test:
                                                 'Points': [pkt]})
                             self.difflog = self.difflog.append(log, ignore_index=True)
                     # reduce lists containing None elements
-                    self.ent.loc[m,(a_t, 'R')] = drop_None(self.ent[(a_t, 'R')][m])
-                    self.ent.loc[m,(a_t, 'R_ref')] = drop_None(self.ent[(a_t, 'R_ref')][m])
-                    self.ent.loc[m,(a_t, 'Formula')] = drop_None(self.ent[(a_t, 'Formula')][m])
-                    self.ent.loc[m,(a_t, 'Tol')] = drop_None(self.ent[(a_t, 'Tol')][m])
-                    self.ent.loc[m,(a_t, 'Var')] = drop_None(self.ent[(a_t, 'Var')][m])
+                    self.ent[(a_t, 'R')][m] = drop_None(self.ent[(a_t, 'R')][m])
+                    self.ent[(a_t, 'R_ref')][m] = drop_None(self.ent[(a_t, 'R_ref')][m])
+                    self.ent[(a_t, 'Formula')][m] = drop_None(self.ent[(a_t, 'Formula')][m])
+                    self.ent[(a_t, 'Tol')][m] = drop_None(self.ent[(a_t, 'Tol')][m])
+                    self.ent[(a_t, 'Var')][m] = drop_None(self.ent[(a_t, 'Var')][m])
 
             # if task type is SingleChoice
                 elif any(sel_sc):
                     # if there are ILIAS_results for single task available
                     if any(sel_c):
                         # get Points achieved according to ILIAS
-                        self.ent.loc[m, (a_t, 'Pkt_ILIAS')] = self.r_ilias.iloc[row_r, sel_c].values.item()
+                        self.ent[(a_t, 'Pkt_ILIAS')][m] = self.r_ilias.iloc[row_r, sel_c].values.item()
                         # set Points to Points achieved according to ILIAS
-                        self.ent.loc[m, (a_t, 'Pkt')] = self.ent[(a_t, 'Pkt_ILIAS')][m]
+                        self.ent[(a_t, 'Pkt')][m] = self.ent[(a_t, 'Pkt_ILIAS')][m]
                     else:
                         # get number of answeres                        
                         # # if the single choice title is ambiguous
@@ -541,7 +547,7 @@ class Test:
                                                 pkts[ind[0]] += self.ent[(a_t, 'Formula')][m][ref]
         # 2.b evaluate Single Choice task
                             pkt = max(pkts) 
-                            self.ent.loc[m, (a_t, 'Pkt')] = pkt
+                            self.ent[(a_t, 'Pkt')][m] = pkt
                 # if the single choice title is unique
                         else:
                             sel_pts = self.sc.loc[sel_sc, self.sc.columns.str.contains('_pts')]
@@ -568,8 +574,8 @@ class Test:
 #                                if self.ent[(a_t, 'Formula')][m][0] == self.ent[(a_t, 'R')][m][0]:
 #                                    pkt = sum(self.ent[(a_t, 'Formula')][m][0])
                                 # delete empty list of empty strings from R and copy correct answer pattern to R_ref
-                                self.ent.loc[m, (a_t, 'R')] = self.ent.loc[m, (a_t, 'R')][0]
-                                self.ent.loc[m, (a_t, 'R_ref')] = self.ent.loc[m, (a_t, 'Formula')][0]
+                                self.ent[(a_t, 'R')][m] = self.ent[(a_t, 'R')][m][0]
+                                self.ent[(a_t, 'R_ref')][m] = self.ent[(a_t, 'Formula')][m][0]
                             # if there is text available for Single-Choice options
                             else:
                                 for ref in range(len(self.ent[(a_t, 'R_ref')][m])):
@@ -579,18 +585,18 @@ class Test:
                                         if self.ent[(a_t, 'R')][m][r] in self.ent[(a_t, 'R_ref')][m][ref]:
                                             pkt += self.ent[(a_t, 'Formula')][m][ref]
     # 2.b evaluate Single Choice task
-                        self.ent.loc[m, (a_t, 'Pkt')] = pkt
+                        self.ent[(a_t, 'Pkt')][m] = pkt
             # if task is task for test correction
                 elif self.ent[(a_t, 'Title')][m] == "Bitte ignorieren!":
-                    self.ent.loc[m, (a_t, 'R')] = "Bitte ignorieren!"
-                    self.ent.loc[m, (a_t, 'Pkt')] = 0
+                    self.ent[(a_t, 'R')][m] = "Bitte ignorieren!"
+                    self.ent[(a_t, 'Pkt')][m] = 0
             # if no task is identified
                 else:
                     # find not identified tasks in ILIAS_results
                     if any(sel_c):
                         # get Points achieved according to ILIAS
-                        self.ent.loc[m, (a_t, 'Pkt_ILIAS')] = self.r_ilias.iloc[row_r, sel_c].values.item()
-                        self.ent.loc[m, (a_t, 'Pkt')] = self.ent[(a_t, 'Pkt_ILIAS')][m]
+                        self.ent[(a_t, 'Pkt_ILIAS')][m] = self.r_ilias.iloc[row_r, sel_c].values.item()
+                        self.ent[(a_t, 'Pkt')][m] = self.ent[(a_t, 'Pkt_ILIAS')][m]
                     # contradiction! task doesn't exist
                     else:
                         print("### Member", m, ", task", t + 1, ",",
@@ -598,7 +604,7 @@ class Test:
                               "doesn't exist in task pool or ILIAS_results! ###")
             # take the aggregated ILIAS results
             if self.doc_aggr_ILIAS_results:
-                self.members.loc[m, 'ILIAS_Pkt'] = self.r_ilias.loc[row_i, 'Testergebnis in Punkten']
+                self.members.loc[m, 'ILIAS_Pkt'] = self.r_ilias['Testergebnis in Punkten'][row_i]
 
 def drop_None(l:list):
     """Drop all None Elements in a list (e.g. self.ent[(:,'Var' or 'R' or 'R_ref')][m])
@@ -616,6 +622,7 @@ def drop_None(l:list):
         if len(l_out) == 1:
             l_out = l_out[0]
     return l_out
+
 
 def eval_ilias(formula_ilias: str,
                var=None,
@@ -674,114 +681,89 @@ def eval_ilias(formula_ilias: str,
     return result
 
 
-def import_psso_members(psso_import: list):
-    """import and concatenation of all psso members. Return one complete psso 
-    member list, which is used for evaluation of an exam or course 
+def evaluate_bonus(members: pd.DataFrame,
+                   max_bonus: int = 5):
+    """evaluation of total bonus points of a course and returns members['Bonus_Pkt'] 
     
     Parameters
-    ---------------
-    psso_import: list of str
-        path str list of the files containing psso_members 
-    """
-    # init psso_members by importing first psso_import file
-    psso_members = pd.read_excel(psso_import[0], skiprows=3)
-    # drop last row if it contains footer
-    if psso_members.loc[psso_members.index[-1],'mtknr'] == 'endHISsheet':
-        psso_members = psso_members.drop(index=psso_members.index[-1])
-    # import all left psso_import files
-    if len(psso_import) > 1:
-        for i in range(len(psso_import) - 1):
-            new_members = pd.read_excel(psso_import[i + 1], skiprows=3)
-            new_members = new_members.drop(index=new_members.index[-1])
-            psso_members = pd.concat([psso_members, new_members], axis=0,
-                                     ignore_index=True)
-    return psso_members
-
-def get_excel_files(considered_tests: list,
-                    import_dir: str, 
-                    identifier: list=['_results', 'Formelfrage', 'SingleChoice']):
-    """ algorithm to collect all excel input data for several considered tests
-    
-    Parameters
-    -------------------
-    considered_tests: list
-        list of names of the considered tests (e.g. [1, 2, 4, 7] or ['Test1, Test_xy, Test_final'])
-    import_dir: str
-        directory containing import data
-    identifier: list
-        list of identifiers for ILIAS result files ('_results'), Formelfrage or Single Choice task pools
-    """
-    # init outputs
-    result_files = []
-    pool_ff_files = []
-    pool_sc_files = []
-    for j in considered_tests:
-        j_i = considered_tests.index(j)
-        result_files.append([])
-        pool_ff_files.append([])
-        pool_sc_files.append([])
-    # iterate all found files
-        for i in range(len(glob.glob(import_dir+str(j)+'/*.xlsx'))):
-            file = glob.glob(import_dir+str(j)+'/*.xlsx')[i]
-            print(file)
-            if identifier[0] in file or identifier[1] in file or identifier[2] in file:
-                if identifier[0] in file:
-                    result_files[j_i].append(file)
-                elif identifier[1] in file:
-                    pool_ff_files[j_i].append(file)
-                elif identifier[2] in file:
-                    pool_sc_files[j_i].append(file)
-            else:
-                result_files[j_i].append(None)
-    return result_files, pool_ff_files, pool_sc_files
-
-def get_originality_proof(members: pd.DataFrame, id_dir: str, doo_dir: str = None):
-    """ 
-    import originality proof including identity check and declaration of originality
-    
-    Parameters
-    ------------
+    -------------
     members: pd.DataFrame
-        DataFrame of all members with columns 'Identitaetsnachweis' and    
-        'Eigenstaendigkeitserklaerung', which has to get filled
-    id_dir: str
-        directory of the excel data of identity check (Identitaetsnachweis)
-    doo_dir: str
-        directory of the excel data of declaration of originality 
-        (Eigenstaendigkeitserklaerung). Default is None.
+        DataFrame of all course members incl. Name, Matrikelnr., etc.
+    max_bonus: int
+        maximum achievable bonus points
     """
-    # import all excel files of documented identity check
-    id_all = pd.read_excel(id_dir, sheet_name='Zusammenfassung')
-    id_all['Identitaetsnachweis'] = id_all['Unterschrift'].notna()
-    for i in range(len(id_all)):
-        # match participant according to Matrikelnummer
-        j = members.index[members['Matrikelnummer']==id_all['Matrikelnummer'][i]]
-        # set "Identitaetsnachweis" of the participant in DataFrame members
-        members.loc[j, 'Identitaetsnachweis'] = id_all['Identitaetsnachweis'][i]
- 
-    # import excel file of documented Eigenständigkeitserklärung
-    if doo_dir is not None:
-        EigErk = pd.read_excel(doo_dir, header=5, sheet_name='Tabelle1')
-        EigErk['Eigenstaendigkeitserklaerung'] = EigErk['Bewertung'].notna()
-        # work-around to get declaration of originality of every participant
-        for i in range(len(EigErk)):
-            pre = EigErk[EigErk.columns[3]][i]
-            while pre.startswith(' '):
-                pre = pre[1:]
-            pos = EigErk[EigErk.columns[2]][i] 
-            if not any(members['Nachname']+', '+members['Vorname']==pos+', '+pre):
-                print('###EigErk:', pos+', '+pre, 'not found in "members"!!')
-            else:
-                # match participant via Nachname and Vorname (unfortunately no Matrikelnummer available in regarded document)
-                j = members.index[members['Nachname']+', '+members['Vorname']==pos+', '+pre]
-                # j = members.index[members['Benutzername']==EigErk['Benutzername'][i]]
-                members.loc[j, 'Eigenstaendigkeitserklaerung'] = EigErk['Eigenstaendigkeitserklaerung'][i]
-    else: # assume all Eigenständigkeitserklärungen valid
-        members['Eigenstaendigkeitserklaerung'] = members['Identitaetsnachweis']
-    # Filter: keep only members with valid 'Eigenstaendigkeitserklaerung'      
-    members['Eigenstaendigkeitserklaerung'] = members['Eigenstaendigkeitserklaerung'].fillna(False)
-    
+    # iterate every member
+    for p in members.index.to_list():
+    # 3. Determine total bonus
+        members.loc[p, 'Bonus_Pkt'] = min(max_bonus, np.nansum([members['Bonus_Pra'][p], members['Bonus_ZT'][p]]))
     return members
+
+
+def evaluate_exam(members: pd.DataFrame,
+                  exam: list,
+                  scheme: pd.Series,
+                  max_pts: int = 40):
+    """evaluation of the final exam and course note and returns members['Note']
+    and all_entries (all exam cohort data unified)
+    
+    Parameters
+    -------------
+    members: pd.DataFrame
+        DataFrame of all course members incl. Name, Matrikelnr., etc. 
+    exam: list of class Test
+        List of evaluated cohorts of the exam
+    scheme: pd.Series
+        scheme for exam evaluation containing note str as index and 
+        corresponding percentage limits as values 
+    max_pts: int
+        maximum achievable exam points, used as reference for note scheme
+    """
+    all_entries = exam[0].ent.copy()
+    members['Note'] = np.nan
+    pass_limit = np.ceil(scheme['4,0']/100*max_pts)
+    # iterate every cohort
+    for c in range(len(exam)):
+        participants = exam[c].ent.any(axis=1)
+        # iterate every participant
+        for p in exam[c].ent.index[participants].to_list():
+            members.loc[p, 'Kohorte'] = exam[c].name
+            try:  # to get the exam note
+                members.loc[p, 'Exam_Pkt'] = sum(exam[c].ent.loc[p, pd.IndexSlice[:, 'Pkt']])
+    # 1. Determine reached Pkt by exam
+    # 2. Determine reached Pkt including bonus
+                members.loc[p, 'Ges_Pkt'] = np.nansum([members['Exam_Pkt'][p], members['Bonus_Pkt'][p]])
+    # 3. Determine prc of Ges_Pkt above pass_limit
+                if members['Ges_Pkt'][p] >= pass_limit:
+                    members.loc[p, '% über Bestehensgrenze'] = str(round((members['Ges_Pkt'][p]/pass_limit-1) * 100, 2)) + ' %'
+    # 4. Evaluate course note of participant
+                if members['Ges_Pkt'][p] == np.nan: 
+                    members.loc[p, 'Note'] = scheme.index[0]
+                else:
+                    if not members[['Identitaetsnachweis','Eigenstaendigkeitserklaerung']].isna().all().all():
+                    # evaluate course note of participant considering identity control and declaration of originality
+                        if members.loc[p, ['Identitaetsnachweis','Eigenstaendigkeitserklaerung']].all():
+                            n_sel = members['Ges_Pkt'][p] / max_pts * 100 >= scheme
+                            members.loc[p, 'Note'] = n_sel.index[n_sel][-1]
+                        else:
+                            members.loc[p, 'Note'] = scheme.index[0]
+                    else:
+                        n_sel = members['Ges_Pkt'][p] / max_pts * 100 >= scheme
+                        members.loc[p, 'Note'] = n_sel.index[n_sel][-1]
+            except TypeError:
+                print('### Exam and note evaluation failed for Member', p,
+                      members.loc[p, 'Name'], 'in test', exam[c].name, '###')
+    # 5. Create pd.DataFrame containing all entries of all cohorts together
+        # overwrite all_entries (usually nan-rows) by values of exam[c].ent
+        all_entries.update(exam[c].ent)
+    # members['% über Bestehensgrenze'] = members['% über Bestehensgrenze'].to_string(formatters={'% über Bestehensgrenze': '{:,.2%}'.format})
+    n_all = len(members['Note'])
+    n_part = len(members['Note'].dropna())
+    n_fail = len(members[members['Note']=='5,0'])
+    print(n_part, 'of', n_all, 'registered members participated in the exam:', round(n_part/n_all*100, 2), '%')
+    print('of which', n_fail, 'members have failed the exam:', round(n_fail/n_part*100, 2), '%')
+    print('Accordingly', n_part-n_fail, 'members have passed the exam:', round((n_part-n_fail)/n_part*100, 2), '%')
+    print(members['Note'].value_counts().sort_index())
+    return members, all_entries
 
 
 def evaluate_intermediate_tests(members: pd.DataFrame,
@@ -818,15 +800,15 @@ def evaluate_intermediate_tests(members: pd.DataFrame,
                 for p in t.row_finder['i_mem'].dropna().values:
                     try:
                         # determine total points of bonus test
-                        d_course.loc[p, [(zt_i, 'Ges_Pkt')]] = np.nansum(t.ent.loc[p, pd.IndexSlice[:, 'Pkt']])
+                        d_course.loc[p, (zt_i, 'Ges_Pkt')] = np.nansum(t.ent.loc[p, pd.IndexSlice[:, 'Pkt']])
                         # get bonus test note
                         if d_course[(zt_i, 'Ges_Pkt')][p] / t.max_pts >= \
                                 scheme.iloc[1] / 100:
-                            d_course.loc[p, [(zt_i, 'Note')]] = scheme.index[1]
+                            d_course.loc[p, (zt_i, 'Note')] = scheme.index[1]
                         else:
-                            d_course.loc[p, [(zt_i, 'Note')]] = scheme.index[0]
+                            d_course.loc[p, (zt_i, 'Note')] = scheme.index[0]
                     except TypeError:  # evaluation of bonus test failed
-                        print('### skipped Member', p, members.loc[p, 'Name'], 'in test', t.name, '###')
+                        print('### skipped Member', p, members['Name'][p], 'in test', t.name, '###')
                     test_res = d_course.loc[p, pd.IndexSlice[zt_filter, 'Note']].value_counts()
                     if (test_res.index == 'BE').any():
                         # Get bonus by bonus tests by considering tests_p_bonus
@@ -874,25 +856,25 @@ def evaluate_praktika(members: pd.DataFrame,
                     if scheme is not None: 
                         try:
                             # determine total points of bonus test
-                            d_course.loc[p, [(pra_i, 'Ges_Pkt')]] = np.nansum(t.ent.loc[p, pd.IndexSlice[:, 'Pkt']])
+                            d_course.loc[p, (pra_i, 'Ges_Pkt')] = np.nansum(t.ent.loc[p, pd.IndexSlice[:, 'Pkt']])
                             # get bonus test note
                             if d_course[(pra_i, 'Ges_Pkt')][p] / t.max_pts >= \
                                     scheme.iloc[1] / 100:
-                                d_course.loc[p, [(pra_i, 'Note')]] = scheme.index[1]
+                                d_course.loc[p, (pra_i, 'Note')] = scheme.index[1]
                             else:
-                                d_course.loc[p, [(pra_i, 'Note')]] = scheme.index[0]
+                                d_course.loc[p, (pra_i, 'Note')] = scheme.index[0]
                         except TypeError:  # evaluation of bonus test failed
-                            print('### skipped Member', p, members.loc[p, 'Name'], 'in praktikum experiment', t.name, '###')
+                            print('### skipped Member', p, members['Name'][p], 'in praktikum experiment', t.name, '###')
                     # if scheme is None, take the evaluation of the ILIAS system
                     else: 
                         sel_m = t.row_finder['i_mem'] == float(p)
                         # 1. Get row in r_ilias of participants valid run))
                         row_i = t.row_finder['row_init'][sel_m].values.item() 
-                        d_course.loc[p, [(pra_i, 'Ges_Pkt')]] = t.r_ilias.loc[row_i, 'Testergebnis in Punkten']
-                        if t.r_ilias.loc[row_i, 'Testergebnis als Note']=='bestanden': 
-                            d_course.loc[p, [(pra_i, 'Note')]] = 'BE'
+                        d_course.loc[p, (pra_i, 'Ges_Pkt')] = t.r_ilias['Testergebnis in Punkten'][row_i]
+                        if t.r_ilias['Testergebnis als Note'][row_i]=='bestanden': 
+                            d_course.loc[p, (pra_i, 'Note')] = 'BE'
                         else:
-                            d_course.loc[p, [(pra_i, 'Note')]] = 'NB'
+                            d_course.loc[p, (pra_i, 'Note')] = 'NB'
                     # if experiment is still not passed, check if it is passed in previous semesters  
     # 1.b export of updated Praktika bonus list
         new_pra_list = d_course[d_course[['V1','V2','V3']].columns[[1,3,5]]]
@@ -900,7 +882,7 @@ def evaluate_praktika(members: pd.DataFrame,
         # filter rows with all nan
         new_pra_list = new_pra_list[~new_pra_list.isnull().all(axis=1)]
         new_pra_list = new_pra_list.replace(['BE', 'NB'], [1, 0]).fillna(0)
-        new_pra_list['Matrikelnummer'] = members.loc[new_pra_list.index, 'Matrikelnummer']
+        new_pra_list['Matrikelnummer'] = members['Matrikelnummer'][new_pra_list.index]
         print(new_pra_list['Matrikelnummer'].astype(int).sort_values().values)
         new_pra_list['Semester']= semester_name
         new_pra_list['Summe'] = new_pra_list[['V1', 'V2', 'V3']].sum(axis=1)
@@ -917,12 +899,12 @@ def evaluate_praktika(members: pd.DataFrame,
         if any(sel):
             # iterate every experiment
             for i in range(len(pra)):
-                if d_course.loc[p, [(pra[i], 'Note')]].values.item() != 'BE':
+                if d_course[(pra[i], 'Note')][p] != 'BE':
                     if pd.to_numeric(pra_prev[pra[i]][sel], errors='coerce').sum() >= 1:
-                            d_course.loc[p, [(pra[i], 'Note')]] = 'BE'
+                            d_course.loc[p, (pra[i], 'Note')] = 'BE'
                             # print('added previous bonus from', pra[i], 'for', p)
 # 2. Sum up all bonus achieved by Praktika
-        # members.loc[p, 'Bonus_Pra'] = 0
+        # members['Bonus_Pra'][p] = 0
         test_res = d_course.loc[p, pd.IndexSlice[pra_filter, 'Note']].value_counts()
         if (test_res.index == 'BE').any():
             #print('#####TEST', test_res['BE'])
@@ -933,88 +915,113 @@ def evaluate_praktika(members: pd.DataFrame,
     return members, d_course
 
 
-def evaluate_bonus(members: pd.DataFrame,
-                   max_bonus: int = 5):
-    """evaluation of total bonus points of a course and returns members['Bonus_Pkt'] 
+def import_psso_members(psso_import: list):
+    """import and concatenation of all psso members. Return one complete psso 
+    member list, which is used for evaluation of an exam or course 
     
     Parameters
-    -------------
-    members: pd.DataFrame
-        DataFrame of all course members incl. Name, Matrikelnr., etc.
-    max_bonus: int
-        maximum achievable bonus points
+    ---------------
+    psso_import: list of str
+        path str list of the files containing psso_members 
     """
-    # iterate every member
-    for p in members.index.to_list():
-    # 3. Determine total bonus
-        members.loc[p, 'Bonus_Pkt'] = min(max_bonus,
-                                          np.nansum([members.loc[p, 'Bonus_Pra'],
-                                                     members.loc[p, 'Bonus_ZT']]))
+    # init psso_members by importing first psso_import file
+    psso_members = pd.read_excel(psso_import[0], skiprows=3)
+    # drop last row if it contains footer
+    if psso_members['mtknr'][psso_members.index[-1]] == 'endHISsheet':
+        psso_members = psso_members.drop(index=psso_members.index[-1])
+    # import all left psso_import files
+    if len(psso_import) > 1:
+        for i in range(len(psso_import) - 1):
+            new_members = pd.read_excel(psso_import[i + 1], skiprows=3)
+            new_members = new_members.drop(index=new_members.index[-1])
+            psso_members = pd.concat([psso_members, new_members], axis=0,
+                                     ignore_index=True)
+    return psso_members
+
+
+def get_excel_files(considered_tests: list,
+                    import_dir: str, 
+                    identifier: list=['_results', 'Formelfrage', 'SingleChoice']):
+    """ algorithm to collect all excel input data for several considered tests
+    
+    Parameters
+    -------------------
+    considered_tests: list
+        list of names of the considered tests (e.g. [1, 2, 4, 7] or ['Test1, Test_xy, Test_final'])
+    import_dir: str
+        directory containing import data
+    identifier: list
+        list of identifiers for ILIAS result files ('_results'), Formelfrage or Single Choice task pools
+    """
+    # init outputs
+    result_files = []
+    pool_ff_files = []
+    pool_sc_files = []
+    for j in considered_tests:
+        j_i = considered_tests.index(j)
+        result_files.append([])
+        pool_ff_files.append([])
+        pool_sc_files.append([])
+    # iterate all found files
+        for i in range(len(glob.glob(import_dir+str(j)+'/*.xlsx'))):
+            file = glob.glob(import_dir+str(j)+'/*.xlsx')[i]
+            print(file)
+            if identifier[0] in file or identifier[1] in file or identifier[2] in file:
+                if identifier[0] in file:
+                    result_files[j_i].append(file)
+                elif identifier[1] in file:
+                    pool_ff_files[j_i].append(file)
+                elif identifier[2] in file:
+                    pool_sc_files[j_i].append(file)
+            else:
+                result_files[j_i].append(None)
+    return result_files, pool_ff_files, pool_sc_files
+
+
+def get_originality_proof(members: pd.DataFrame, id_dir: str, doo_dir: str = None):
+    """ 
+    import originality proof including identity check and declaration of originality
+    
+    Parameters
+    ------------
+    members: pd.DataFrame
+        DataFrame of all members with columns 'Identitaetsnachweis' and    
+        'Eigenstaendigkeitserklaerung', which has to get filled
+    id_dir: str
+        directory of the excel data of identity check (Identitaetsnachweis)
+    doo_dir: str
+        directory of the excel data of declaration of originality 
+        (Eigenstaendigkeitserklaerung). Default is None.
+    """
+    # import all excel files of documented identity check
+    id_all = pd.read_excel(id_dir, sheet_name='Zusammenfassung')
+    id_all['Identitaetsnachweis'] = id_all['Unterschrift'].notna()
+    for i in range(len(id_all)):
+        # match participant according to Matrikelnummer
+        j = members.index[members['Matrikelnummer']==id_all['Matrikelnummer'][i]]
+        # set "Identitaetsnachweis" of the participant in DataFrame members
+        members.loc[j, 'Identitaetsnachweis'] = id_all['Identitaetsnachweis'][i]
+ 
+    # import excel file of documented Eigenständigkeitserklärung
+    if doo_dir is not None:
+        EigErk = pd.read_excel(doo_dir, header=5, sheet_name='Tabelle1')
+        EigErk['Eigenstaendigkeitserklaerung'] = EigErk['Bewertung'].notna()
+        # work-around to get declaration of originality of every participant
+        for i in range(len(EigErk)):
+            pre = EigErk[EigErk.columns[3]][i]
+            while pre.startswith(' '):
+                pre = pre[1:]
+            pos = EigErk[EigErk.columns[2]][i] 
+            if not any(members['Nachname']+', '+members['Vorname']==pos+', '+pre):
+                print('###EigErk:', pos+', '+pre, 'not found in "members"!!')
+            else:
+                # match participant via Nachname and Vorname (unfortunately no Matrikelnummer available in regarded document)
+                j = members.index[members['Nachname']+', '+members['Vorname']==pos+', '+pre]
+                # j = members.index[members['Benutzername']==EigErk['Benutzername'][i]]
+                members['Eigenstaendigkeitserklaerung'][j] = EigErk['Eigenstaendigkeitserklaerung'][i]
+    else: # assume all Eigenständigkeitserklärungen valid
+        members['Eigenstaendigkeitserklaerung'] = members['Identitaetsnachweis']
+    # Filter: keep only members with valid 'Eigenstaendigkeitserklaerung'      
+    members['Eigenstaendigkeitserklaerung'] = members['Eigenstaendigkeitserklaerung'].fillna(False)
+    
     return members
-
-
-def evaluate_exam(members: pd.DataFrame,
-                  exam: list,
-                  scheme: pd.Series,
-                  max_pts: int = 40):
-    """evaluation of the final exam and course note and returns members['Note']
-    and all_entries (all exam cohort data unified)
-    
-    Parameters
-    -------------
-    members: pd.DataFrame
-        DataFrame of all course members incl. Name, Matrikelnr., etc. 
-    exam: list of class Test
-        List of evaluated cohorts of the exam
-    scheme: pd.Series
-        scheme for exam evaluation containing note str as index and 
-        corresponding percentage limits as values 
-    max_pts: int
-        maximum achievable exam points, used as reference for note scheme
-    """
-    all_entries = exam[0].ent.copy()
-    members['Note'] = np.nan
-    pass_limit = np.ceil(scheme['4,0']/100*max_pts)
-    # iterate every cohort
-    for c in range(len(exam)):
-        participants = exam[c].ent.any(axis=1)
-        # iterate every participant
-        for p in exam[c].ent.index[participants].to_list():
-            members.loc[p, 'Kohorte'] = exam[c].name
-            try:  # to get the exam note
-                members.loc[p, 'Exam_Pkt'] = sum(exam[c].ent.loc[p, pd.IndexSlice[:, 'Pkt']])
-    # 1. Determine reached Pkt by exam
-    # 2. Determine reached Pkt including bonus
-                members.loc[p, 'Ges_Pkt'] = np.nansum([members.loc[p, 'Exam_Pkt'], members.loc[p, 'Bonus_Pkt']])
-    # 3. Determine prc of Ges_Pkt above pass_limit
-                if members['Ges_Pkt'][p] >= pass_limit:
-                    members.loc[p, '% über Bestehensgrenze'] = str(round((members['Ges_Pkt'][p]/pass_limit-1) * 100, 2)) + ' %'
-    # 4. Evaluate course note of participant
-                if members.loc[p, 'Ges_Pkt'] == np.nan: 
-                    members.loc[p, 'Note'] = scheme.index[0]
-                else:
-                    if not members[['Identitaetsnachweis','Eigenstaendigkeitserklaerung']].isna().all().all():
-                    # evaluate course note of participant considering identity control and declaration of originality
-                        if members.loc[p,['Identitaetsnachweis','Eigenstaendigkeitserklaerung']].all():
-                            n_sel = members.loc[p, 'Ges_Pkt'] / max_pts * 100 >= scheme
-                            members.loc[p, 'Note'] = n_sel.index[n_sel][-1]
-                        else:
-                            members.loc[p, 'Note'] = scheme.index[0]
-                    else:
-                        n_sel = members.loc[p, 'Ges_Pkt'] / max_pts * 100 >= scheme
-                        members.loc[p, 'Note'] = n_sel.index[n_sel][-1]
-            except TypeError:
-                print('### Exam and note evaluation failed for Member', p,
-                      members.loc[p, 'Name'], 'in test', exam[c].name, '###')
-    # 5. Create pd.DataFrame containing all entries of all cohorts together
-        # overwrite all_entries (usually nan-rows) by values of exam[c].ent
-        all_entries.update(exam[c].ent)
-    # members['% über Bestehensgrenze'] = members['% über Bestehensgrenze'].to_string(formatters={'% über Bestehensgrenze': '{:,.2%}'.format})
-    n_all = len(members['Note'])
-    n_part = len(members['Note'].dropna())
-    n_fail = len(members[members['Note']=='5,0'])
-    print(n_part, 'of', n_all, 'registered members participated in the exam:', round(n_part/n_all*100, 2), '%')
-    print('of which', n_fail, 'members have failed the exam:', round(n_fail/n_part*100, 2), '%')
-    print('Accordingly', n_part-n_fail, 'members have passed the exam:', round((n_part-n_fail)/n_part*100, 2), '%')
-    print(members['Note'].value_counts().sort_index())
-    return members, all_entries
